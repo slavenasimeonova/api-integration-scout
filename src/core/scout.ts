@@ -177,6 +177,11 @@ export async function runScout(docsUrl: string, opts: RunScoutOptions = {}): Pro
       risks.push({ severity: "medium", title: JS_RENDERING_RISK, detail: `${visit.url} returned only ${visit.textLength} characters of text.`, origin: "fetch" });
       warnings.push(`Low text on ${visit.url} (${visit.textLength} chars); may require JavaScript rendering`);
     }
+    if (visit.truncated) {
+      warnings.push(
+        `Page truncated: ${visit.url} (${visit.textLength} chars, first ${config.maxPageChars} sent to the model); findings from this page may be incomplete`,
+      );
+    }
     if (visit.status === "failed") warnings.push(`Could not fetch ${visit.url}: ${visit.error}`);
   }
   for (const d of downgrades) {

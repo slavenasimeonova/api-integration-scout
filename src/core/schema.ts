@@ -138,6 +138,8 @@ export type PageVisit = {
   status: "fetched" | "failed";
   textLength: number;
   lowText: boolean;
+  /** Text was longer than maxPageChars, so only the first part reached the model. */
+  truncated: boolean;
   error?: string;
 };
 

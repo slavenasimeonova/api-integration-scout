@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { DEFAULT_CONFIG } from "../src/core/config.js";
 import type { ProgressEvent } from "../src/core/events.js";
 import { ScoutError, runScout, type RunScoutOptions } from "../src/core/scout.js";
+import { buildMarkdown } from "../src/generators/markdown.js";
 import { ACME_ROOT, createFixtureFetcher } from "./helpers/fixtures.js";
 import { ACME_OUTPUT, fakeRunner, type FakeStep } from "./helpers/fake-runner.js";
 
@@ -73,6 +74,22 @@ describe("runScout", () => {
     );
     expect(analysis.warnings.some((w) => w.includes("/app"))).toBe(true);
     expect(events.some((e) => e.step === "low_text_warning")).toBe(true);
+  });
+
+  it("notes truncated pages in the analysis so truncation is never silent", async () => {
+    const { promise, events } = await run(
+      [{ fetch: ACME_ROOT }, { fetch: "/rate-limits" }, { result: "success", output: ACME_OUTPUT }],
+      { config: { ...DEFAULT_CONFIG, maxPageChars: 300 } },
+    );
+    const analysis = await promise;
+    // index.html (580 chars) is over the limit; rate-limits (202 chars) is not.
+    expect(analysis.warnings).toEqual([
+      expect.stringMatching(/^Page truncated: https:\/\/docs\.acmeweather\.example\/ .*findings from this page may be incomplete$/),
+      expect.stringMatching(/downgraded/),
+    ]);
+    expect(analysis.pagesVisited.map((p) => p.truncated)).toEqual([true, false]);
+    expect(events.filter((e) => e.step === "page_truncated")).toHaveLength(1);
+    expect(buildMarkdown(analysis)).toContain("(truncated; findings may be incomplete)");
   });
 
   it("stops when the token budget is exceeded and still reports usage", async () => {

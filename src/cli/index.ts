@@ -42,6 +42,7 @@ const MARKERS: Partial<Record<ProgressEvent["step"], string>> = {
   page_fetched: "[page]",
   page_skipped: "[skip]",
   low_text_warning: "[warn]",
+  page_truncated: "[warn]",
   budget_exceeded: "[STOP]",
   verification_downgrade: "[check]",
   run_completed: "[done]",

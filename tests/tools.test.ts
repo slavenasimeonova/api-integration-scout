@@ -91,6 +91,15 @@ describe("DocsSession.fetchPage", () => {
     const result = await session.fetchPage("/");
     expect(result.text).toContain("truncated to 100");
     expect(session.pages.get(ACME_ROOT)!.text.length).toBeGreaterThan(100);
+    expect(session.visits[0]).toMatchObject({ truncated: true });
+    expect(events.find((e) => e.step === "page_truncated")).toMatchObject({ url: ACME_ROOT, maxChars: 100 });
+  });
+
+  it("does not report truncation for pages under the limit", async () => {
+    const { session, events } = setup();
+    await session.fetchPage("/");
+    expect(session.visits[0]).toMatchObject({ truncated: false });
+    expect(events.some((e) => e.step === "page_truncated")).toBe(false);
   });
 });
 

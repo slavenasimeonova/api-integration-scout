@@ -27,6 +27,7 @@ export type ProgressEvent =
   | (Base<"page_fetched"> & { url: string; pageCount: number; maxPages: number; textLength: number })
   | (Base<"page_skipped"> & { url: string; reason: "off_domain" | "page_limit" | "already_fetched" | "fetch_error" })
   | (Base<"low_text_warning"> & { url: string; textLength: number })
+  | (Base<"page_truncated"> & { url: string; textLength: number; maxChars: number })
   | Base<AgentStep>
   | (Base<"usage_update"> & { totalTokens: number; maxTokens: number })
   | (Base<"budget_exceeded"> & { totalTokens: number; maxTokens: number })

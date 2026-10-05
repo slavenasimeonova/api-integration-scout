@@ -88,7 +88,8 @@ export class DocsSession {
     // near-empty pages, or short pages that also look client-rendered.
     const len = extracted.text.length;
     const lowText = len < ALMOST_EMPTY_CHARS || (len < this.config.minPageTextChars && extracted.looksClientRendered);
-    this.visits.push({ url, status: "fetched", textLength: extracted.text.length, lowText });
+    const truncated = len > this.config.maxPageChars;
+    this.visits.push({ url, status: "fetched", textLength: len, lowText, truncated });
 
     this.emit({
       step: "page_fetched",
@@ -106,6 +107,15 @@ export class DocsSession {
         textLength: extracted.text.length,
       });
     }
+    if (truncated) {
+      this.emit({
+        step: "page_truncated",
+        detail: `Page truncated: ${url} has ${len} chars; only the first ${this.config.maxPageChars} were sent to the model`,
+        url,
+        textLength: len,
+        maxChars: this.config.maxPageChars,
+      });
+    }
 
     return { text: this.formatPage(url, extracted.title, extracted.text, extracted.links, lowText), isError: false };
   }
@@ -116,7 +126,7 @@ export class DocsSession {
   }
 
   private failed(url: string, error: string): ToolResult {
-    this.visits.push({ url, status: "failed", textLength: 0, lowText: false, error });
+    this.visits.push({ url, status: "failed", textLength: 0, lowText: false, truncated: false, error });
     this.emit({ step: "page_skipped", detail: `Could not fetch ${url}: ${error}`, url, reason: "fetch_error" });
     return { text: `Could not fetch ${url}: ${error}`, isError: true };
   }

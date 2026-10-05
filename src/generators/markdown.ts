@@ -116,7 +116,7 @@ export function buildMarkdown(a: Analysis): string {
     }),
     "## Pages visited",
     "",
-    ...a.pagesVisited.map((p) => `- ${p.url}: ${p.status === "fetched" ? `${p.textLength} chars${p.lowText ? " (low text, may need JavaScript)" : ""}` : `failed (${p.error})`}`),
+    ...a.pagesVisited.map((p) => `- ${p.url}: ${p.status === "fetched" ? `${p.textLength} chars${p.lowText ? " (low text, may need JavaScript)" : ""}${p.truncated ? " (truncated; findings may be incomplete)" : ""}` : `failed (${p.error})`}`),
     "",
     ...(a.warnings.length ? ["## Warnings", "", ...a.warnings.map((w) => `- ${w}`), ""] : []),
     "## Run",

@@ -167,6 +167,7 @@ tests/             Vitest tests; fixtures/ holds saved HTML, so no network or AP
 | `run_started` | Start of the run (url, model) |
 | `page_fetched` / `page_skipped` | Each fetch (count, limit, skip reason) |
 | `low_text_warning` | Page may need JavaScript rendering |
+| `page_truncated` | Page text exceeded 12,000 characters; also noted in `warnings` and `analysis.md` |
 | `base_url_found`, `auth_found`, `endpoint_found`, `pagination_found`, `rate_limit_found`, `webhooks_found`, `error_format_found`, `versioning_found`, `not_found`, `risk_found`, `note` | Reported live by the agent |
 | `usage_update` / `budget_exceeded` | Token tally after each model response |
 | `verification_downgrade` | A documented claim failed quote verification |
@@ -195,6 +196,6 @@ The tests use saved HTML fixtures and a scripted stand-in for the Agent SDK (`te
 ## Limitations
 
 - Docs that render only with JavaScript can't be read. They are flagged, not executed.
-- Only up to `SCOUT_MAX_PAGES` pages are read, and page text sent to the model is capped at 12,000 characters. Large references may be only partly covered (a warning is added when the page limit is hit).
+- Only up to `SCOUT_MAX_PAGES` pages are read, and page text sent to the model is capped at 12,000 characters. Large references may be only partly covered. Both cases are reported: each truncated page gets a `page_truncated` event and a warning ("findings from this page may be incomplete"), and hitting the page limit adds a warning.
 - The same-site rule allows the starting host and its parent/child subdomains (`docs.stripe.com` and `stripe.com`). Docs hosted on a different domain aren't followed.
 - Costs are the SDK's estimates, not a billing statement.
