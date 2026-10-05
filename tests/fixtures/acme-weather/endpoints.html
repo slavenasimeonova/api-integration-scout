@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head><title>Endpoints | Acme Weather API</title></head>
+<body>
+  <nav><a href="/">Overview</a> <a href="/endpoints">Endpoints</a></nav>
+  <main>
+    <h1>Endpoints</h1>
+
+    <h2>GET /forecast</h2>
+    <p>Returns a 7-day forecast for a city.</p>
+    <table>
+      <tr><th>Parameter</th><th>In</th><th>Required</th><th>Description</th></tr>
+      <tr><td>city</td><td>query</td><td>yes</td><td>City name, e.g. Sofia</td></tr>
+      <tr><td>units</td><td>query</td><td>no</td><td><code>metric</code> or <code>imperial</code></td></tr>
+    </table>
+
+    <h2>GET /locations/{id}</h2>
+    <p>Returns details for a saved location.</p>
+
+    <h2>GET /locations</h2>
+    <p>Lists saved locations. Results are paginated: pass the
+       <code>cursor</code> value from the previous response's
+       <code>next_cursor</code> field. Use <code>limit</code> (max 100) to set the page size.</p>
+
+    <h2>POST /alerts</h2>
+    <p>Creates a severe-weather alert subscription. Send a JSON body with
+       <code>location_id</code> and <code>callback_url</code>.</p>
+  </main>
+</body>
+</html>

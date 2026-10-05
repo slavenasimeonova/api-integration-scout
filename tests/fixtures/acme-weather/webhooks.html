@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="en">
+<head><title>Webhooks | Acme Weather API</title></head>
+<body>
+  <main>
+    <h1>Webhooks</h1>
+    <p>When an alert fires, Acme sends a <code>POST</code> request to your
+       <code>callback_url</code> with the event types
+       <code>alert.triggered</code> and <code>alert.cleared</code>.</p>
+    <p>Every webhook includes an <code>X-Acme-Signature</code> header: an
+       HMAC&#8209;SHA256 of the raw body, signed with your webhook secret.
+       You must verify the signature before trusting the payload.</p>
+  </main>
+</body>
+</html>

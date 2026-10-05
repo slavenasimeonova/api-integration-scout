@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Acme Weather API &mdash; Overview</title>
+  <link rel="stylesheet" href="/static/docs.css">
+  <script>window.analytics = { track: function () {} };</script>
+</head>
+<body>
+  <nav>
+    <a href="/">Overview</a>
+    <a href="/endpoints">Endpoints</a>
+    <a href="/rate-limits#limits">Rate limits</a>
+    <a href="/webhooks">Webhooks</a>
+    <a href="/app">Dashboard</a>
+    <a href="https://twitter.com/acmeweather">Twitter</a>
+    <a href="https://status.docs.acmeweather.example/">Status</a>
+    <a href="mailto:support@acmeweather.example">Support</a>
+    <a href="/static/logo.png">Logo</a>
+  </nav>
+  <main>
+    <h1>Acme Weather API</h1>
+    <p>The Acme Weather API returns current conditions and forecasts
+       for any location&nbsp;worldwide.</p>
+
+    <h2>Base URL</h2>
+    <p>All requests are made to <code>https://api.acmeweather.example/v2</code>.</p>
+
+    <h2>Authentication</h2>
+    <p>Authenticate every request by sending your API key in the
+       <code>X-Api-Key</code>
+       header. Keys are created in the dashboard.</p>
+    <pre><code>curl https://api.acmeweather.example/v2/forecast?city=Sofia \
+  -H "X-Api-Key: YOUR_KEY"</code></pre>
+
+    <h2>Versioning</h2>
+    <p>The major version is part of the URL path (<code>/v2</code>).</p>
+
+    <h2>Errors</h2>
+    <p>Errors use standard HTTP status codes and a JSON body:</p>
+    <pre><code>{ "error": { "code": "invalid_city", "message": "City not found" } }</code></pre>
+  </main>
+  <footer>&copy; Acme Weather</footer>
+</body>
+</html>
