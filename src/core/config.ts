@@ -8,6 +8,8 @@ export type ScoutConfig = {
   maxTurns: number;
   /** Pages with less extracted text than this are flagged as possibly JS-rendered. */
   minPageTextChars: number;
+  /** Page text sent to the model is capped at this length to protect the token budget. */
+  maxPageChars: number;
   fetchTimeoutMs: number;
 };
 
@@ -18,6 +20,7 @@ export const DEFAULT_CONFIG: ScoutConfig = {
   maxBudgetUsd: 0.5,
   maxTurns: 40,
   minPageTextChars: 500,
+  maxPageChars: 12_000,
   fetchTimeoutMs: 15_000,
 };
 
