@@ -44,6 +44,7 @@ describe("runScout", () => {
       allowedTools: ["mcp__scout__fetch_page", "mcp__scout__report_progress"],
       permissionMode: "dontAsk",
       settingSources: [],
+      settings: { autoMemoryEnabled: false },
       maxBudgetUsd: 0.5,
     });
     expect(options.outputFormat?.type).toBe("json_schema");
@@ -111,6 +112,15 @@ describe("runScout", () => {
 
     const { promise: p2 } = await run([{ result: "error_max_structured_output_retries" }]);
     await expect(p2).rejects.toMatchObject({ reason: "no_structured_output" });
+  });
+
+  it("surfaces the API's error message instead of a generic failure", async () => {
+    const message = "API Error: 400 This API key is not scoped to a workspace";
+    const { promise } = await run([{ apiError: message, status: 400 }]);
+    await expect(promise).rejects.toMatchObject({
+      reason: "api_error",
+      message: `Claude API error (HTTP 400): ${message}`,
+    });
   });
 
   it("rejects output that doesn't match the schema", async () => {

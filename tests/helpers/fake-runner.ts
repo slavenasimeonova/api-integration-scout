@@ -11,6 +11,8 @@ export type FakeStep =
   | { assistant: Usage; id?: string }
   | { result: "success"; output: unknown; usage?: Usage; costUsd?: number }
   | { result: "error_max_budget_usd" | "error_max_turns" | "error_max_structured_output_retries" }
+  /** What the SDK yields when the API rejects the request: subtype success, is_error true. */
+  | { apiError: string; status: number }
   | { throw: string };
 
 export function fakeRunner(steps: FakeStep[]): AgentRunner & { calls: Parameters<AgentRunner>[0][] } {
@@ -25,6 +27,19 @@ export function fakeRunner(steps: FakeStep[]): AgentRunner & { calls: Parameters
       else if ("assistant" in step) {
         yield { type: "assistant", message: { id: step.id ?? `msg_${++n}`, usage: step.assistant, content: [] } } as unknown as SDKMessage;
       } else if ("throw" in step) throw new Error(step.throw);
+      else if ("apiError" in step) {
+        yield {
+          type: "result",
+          subtype: "success",
+          is_error: true,
+          api_error_status: step.status,
+          result: step.apiError,
+          usage: { input_tokens: 0, output_tokens: 0, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 },
+          total_cost_usd: 0,
+          num_turns: 1,
+          duration_ms: 500,
+        } as unknown as SDKMessage;
+      }
       else if (step.result === "success") {
         yield {
           type: "result",

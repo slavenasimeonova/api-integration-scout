@@ -35,6 +35,7 @@ export type ScoutFailureReason =
   | "budget_exceeded"
   | "max_budget_usd"
   | "max_turns"
+  | "api_error"
   | "no_structured_output"
   | "invalid_output"
   | "aborted"
@@ -88,7 +89,10 @@ export async function runScout(docsUrl: string, opts: RunScoutOptions = {}): Pro
     mcpServers: { [MCP_SERVER_NAME]: createScoutMcpServer(session) },
     strictMcpConfig: true,
     permissionMode: "dontAsk",
+    // Isolate the agent from the user's Claude Code setup: no settings files,
+    // and no auto-memory (which is otherwise read even with settingSources: []).
     settingSources: [],
+    settings: { autoMemoryEnabled: false },
     persistSession: false,
     maxTurns: config.maxTurns,
     maxBudgetUsd: config.maxBudgetUsd,
@@ -156,6 +160,12 @@ export async function runScout(docsUrl: string, opts: RunScoutOptions = {}): Pro
       final.subtype === "error_max_structured_output_retries" ? "no_structured_output" : "execution_error",
       `Agent run ended with ${final.subtype}${errors ? `: ${errors}` : ""}`,
     );
+  }
+  // An API error (bad key, missing workspace, overload) can arrive as subtype
+  // "success" with is_error set and the API's message in `result`.
+  if (final.subtype === "success" && final.is_error) {
+    const status = final.api_error_status ? ` (HTTP ${final.api_error_status})` : "";
+    fail("api_error", `Claude API error${status}: ${final.result || "no details"}`);
   }
   if (final.subtype !== "success" || final.structured_output === undefined) {
     return fail("no_structured_output", "Agent finished without producing a structured analysis");
