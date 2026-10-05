@@ -30,8 +30,15 @@ describe("extractPage", () => {
   it("flags JavaScript-only pages", () => {
     const spa = extractPage(readFixture("app.html"), ACME_ROOT + "app");
     expect(spa.text.length).toBeLessThan(50);
-    expect(spa.mentionsJavaScriptRequired).toBe(true);
-    expect(page.mentionsJavaScriptRequired).toBe(false);
+    expect(spa.looksClientRendered).toBe(true);
+    expect(page.looksClientRendered).toBe(false);
+  });
+
+  it("detects empty SPA mount points but not filled ones", () => {
+    const empty = extractPage('<body><div id="__next"></div><p>Loading</p></body>', ACME_ROOT);
+    const filled = extractPage('<body><div id="root"><h1>Docs</h1><p>Real content</p></div></body>', ACME_ROOT);
+    expect(empty.looksClientRendered).toBe(true);
+    expect(filled.looksClientRendered).toBe(false);
   });
 });
 

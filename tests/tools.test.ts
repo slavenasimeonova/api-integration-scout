@@ -64,6 +64,14 @@ describe("DocsSession.fetchPage", () => {
     expect(session.visits[0]).toMatchObject({ status: "fetched", lowText: true });
   });
 
+  it("does not flag short but normal server-rendered pages", async () => {
+    const { session, events } = setup();
+    await session.fetchPage("/rate-limits");
+    expect(session.visits[0]?.textLength).toBeLessThan(DEFAULT_CONFIG.minPageTextChars);
+    expect(session.visits[0]?.lowText).toBe(false);
+    expect(events.some((e) => e.step === "low_text_warning")).toBe(false);
+  });
+
   it("records failed fetches", async () => {
     const { session, events } = setup();
     const result = await session.fetchPage("/missing");

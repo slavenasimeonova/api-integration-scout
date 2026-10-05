@@ -6,12 +6,18 @@ export type ExtractedPage = {
   title: string;
   text: string;
   links: PageLink[];
-  /** True when a <noscript> block asks the reader to enable JavaScript. */
-  mentionsJavaScriptRequired: boolean;
+  /**
+   * True when the page shows signs of client-side rendering: a <noscript>
+   * notice asking for JavaScript, or an empty SPA mount element.
+   */
+  looksClientRendered: boolean;
 };
 
 const BLOCK_SELECTOR =
   "p,div,li,ul,ol,h1,h2,h3,h4,h5,h6,tr,table,pre,section,article,header,footer,nav,aside,main,dt,dd,dl,blockquote,figure";
+
+/** Mount points used by common SPA frameworks (React, Vue, Next, Nuxt, Docusaurus, Svelte). */
+const SPA_MOUNT_SELECTOR = "#root, #app, #__next, #__nuxt, #__docusaurus, #svelte, [data-reactroot]";
 
 const SKIP_LINK_EXTENSIONS = /\.(png|jpe?g|gif|svg|webp|ico|css|js|zip|gz|tar|mp4|woff2?)$/i;
 
@@ -20,7 +26,10 @@ export function extractPage(html: string, pageUrl: string): ExtractedPage {
   const $ = cheerio.load(html);
 
   const title = $("title").first().text().trim() || $("h1").first().text().trim();
-  const mentionsJavaScriptRequired = /javascript/i.test($("noscript").text());
+  const emptyMount = $(SPA_MOUNT_SELECTOR)
+    .toArray()
+    .some((el) => collapse($(el).text()) === "");
+  const looksClientRendered = /javascript/i.test($("noscript").text()) || emptyMount;
 
   const links: PageLink[] = [];
   const seen = new Set<string>();
@@ -45,7 +54,7 @@ export function extractPage(html: string, pageUrl: string): ExtractedPage {
     .filter((line) => line.length > 0)
     .join("\n");
 
-  return { title, text, links, mentionsJavaScriptRequired };
+  return { title, text, links, looksClientRendered };
 }
 
 /** Resolves a link against its page and strips the #fragment. Returns null for non-http(s). */

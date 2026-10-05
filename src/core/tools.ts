@@ -10,6 +10,7 @@ export const MCP_SERVER_NAME = "scout";
 export const ALLOWED_TOOLS = [`mcp__${MCP_SERVER_NAME}__fetch_page`, `mcp__${MCP_SERVER_NAME}__report_progress`];
 
 const MAX_LINKS_PER_PAGE = 80;
+const ALMOST_EMPTY_CHARS = 100;
 
 type Emit = ReturnType<typeof createEmitter>;
 
@@ -77,13 +78,16 @@ export class DocsSession {
     const isHtml = /html/i.test(response.contentType) || /^\s*</.test(response.body);
     const extracted = isHtml
       ? extractPage(response.body, response.finalUrl)
-      : { title: "", text: response.body.trim(), links: [] as PageLink[], mentionsJavaScriptRequired: false };
+      : { title: "", text: response.body.trim(), links: [] as PageLink[], looksClientRendered: false };
 
     const stored: StoredPage = { url: response.finalUrl, title: extracted.title, text: extracted.text };
     this.pages.set(url, stored);
     this.pages.set(response.finalUrl, stored);
 
-    const lowText = extracted.text.length < this.config.minPageTextChars || extracted.mentionsJavaScriptRequired;
+    // Short pages are normal (e.g. a one-paragraph rate-limit page); only flag
+    // near-empty pages, or short pages that also look client-rendered.
+    const len = extracted.text.length;
+    const lowText = len < ALMOST_EMPTY_CHARS || (len < this.config.minPageTextChars && extracted.looksClientRendered);
     this.visits.push({ url, status: "fetched", textLength: extracted.text.length, lowText });
 
     this.emit({

@@ -8,7 +8,7 @@ export type ScoutConfig = {
   /** Hard USD cap enforced by the Agent SDK. */
   maxBudgetUsd: number;
   maxTurns: number;
-  /** Pages with less extracted text than this are flagged as possibly JS-rendered. */
+  /** Pages shorter than this that also look client-rendered are flagged as possibly incomplete. */
   minPageTextChars: number;
   /** Page text sent to the model is capped at this length to protect the token budget. */
   maxPageChars: number;
