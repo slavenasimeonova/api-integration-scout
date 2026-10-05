@@ -1,5 +1,7 @@
 export type ScoutConfig = {
   model: string;
+  /** Reasoning effort; medium keeps multi-step tool use affordable. */
+  effort: "low" | "medium" | "high" | "xhigh" | "max";
   maxPages: number;
   /** Total tokens (input + output + cache) before the run is stopped. */
   maxTokens: number;
@@ -15,6 +17,7 @@ export type ScoutConfig = {
 
 export const DEFAULT_CONFIG: ScoutConfig = {
   model: "claude-sonnet-5-5",
+  effort: "medium",
   maxPages: 15,
   maxTokens: 150_000,
   maxBudgetUsd: 0.5,
