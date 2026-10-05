@@ -1,0 +1,31 @@
+{
+  "name": "api-integration-scout",
+  "version": "1.0.0",
+  "scripts": {
+    "scout": "node --env-file-if-exists=.env --import tsx src/cli/index.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "author": "",
+  "license": "ISC",
+  "description": "AI agent that analyzes public API docs and produces an integration analysis plus a Postman collection",
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.3.289",
+    "ajv": "^8.20.0",
+    "ajv-draft-04": "^1.0.0",
+    "cheerio": "^1.2.0",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.4",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.3"
+  },
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=22"
+  }
+}
