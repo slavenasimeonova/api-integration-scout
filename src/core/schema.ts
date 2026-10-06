@@ -85,7 +85,9 @@ export const EndpointParam = z.object({
 
 export const EndpointValue = z.object({
   method: HttpMethod,
-  path: z.string().describe("Path relative to the base URL, e.g. /v1/customers/{id}"),
+  path: z
+    .string()
+    .describe("Path relative to the base URL, e.g. /v1/customers/{id}. If the endpoint is on a different host, the full URL instead."),
   purpose: z.string(),
   keyParams: z.array(EndpointParam),
 });
