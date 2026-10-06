@@ -61,7 +61,7 @@ export class DocsSession {
     }
 
     // Reserve the slot before awaiting so parallel tool calls can't exceed the limit.
-    this.attempts++;
+    const slot = ++this.attempts;
     this.attempted.add(url);
 
     let response;
@@ -93,9 +93,9 @@ export class DocsSession {
 
     this.emit({
       step: "page_fetched",
-      detail: `Fetched ${extracted.title || url} (${this.attempts}/${this.config.maxPages})`,
+      detail: `Fetched ${extracted.title || url} (${slot}/${this.config.maxPages})`,
       url,
-      pageCount: this.attempts,
+      pageCount: slot,
       maxPages: this.config.maxPages,
       textLength: extracted.text.length,
     });

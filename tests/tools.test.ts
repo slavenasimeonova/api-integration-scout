@@ -47,6 +47,13 @@ describe("DocsSession.fetchPage", () => {
     expect(results.filter((r) => r.text.includes("Page limit of 2 reached"))).toHaveLength(2);
   });
 
+  it("numbers parallel fetches by their reserved slot", async () => {
+    const { session, events } = setup();
+    await Promise.all(["/", "/endpoints", "/webhooks"].map((p) => session.fetchPage(p)));
+    const counts = events.flatMap((e) => (e.step === "page_fetched" ? [e.pageCount] : []));
+    expect(counts.sort()).toEqual([1, 2, 3]);
+  });
+
   it("does not refetch a page", async () => {
     const { session, fetcher } = setup();
     await session.fetchPage("/webhooks");
