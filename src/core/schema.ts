@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { AnalysisEndpoint } from "./hosts.js";
 
 /**
  * Every extracted fact is wrapped in a Finding so the reader always knows
@@ -164,7 +165,9 @@ export type RunStats = {
 };
 
 /** The final, verified result saved as analysis.json. */
-export type Analysis = Omit<AgentOutput, "risks"> & {
+export type Analysis = Omit<AgentOutput, "risks" | "endpoints"> & {
+  /** Endpoints after verification and the host check (see hosts.ts). */
+  endpoints: AnalysisEndpoint[];
   schemaVersion: 1;
   docsUrl: string;
   generatedAt: string;

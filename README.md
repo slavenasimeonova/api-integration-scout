@@ -140,6 +140,7 @@ src/
     html.ts        HTML -> text, link extraction, same-site rule, JS-rendering detection
     fetcher.ts     Fetcher interface + HTTP implementation
     verify.ts      Checks every "documented" quote against the fetched page text
+    hosts.ts       Fixes or flags endpoint hosts using URLs in verified quotes
     budget.ts      Token budget tracking
     schema.ts      Zod schema for the agent's structured output + Analysis type
     events.ts      ProgressEvent union + emitter
@@ -159,7 +160,8 @@ tests/             Vitest tests; fixtures/ holds saved HTML, so no network or AP
 3. Pages with almost no text, or short pages that look client-rendered (a `<noscript>` notice or an empty `#root` / `#__next` mount), trigger a `low_text_warning`. They also produce the risk *"docs page may require JavaScript rendering; content may be incomplete"*.
 4. The model's structured output is parsed with Zod. Then `verify.ts` checks each documented quote against the page it cites. Matching is normalized: case, whitespace, punctuation and Unicode spacing variants are ignored, but only whole words count.
 5. Authentication: different client systems often need different auth methods, so every documented method is kept. `auth` holds the primary one and `authAlternatives` the rest, each with its own verified quote. Only documented methods go into the collection. An alternative that is inferred, or fails verification, is left out and listed in `warnings`. If the primary method is only inferred, the first documented alternative becomes the collection auth.
-6. The generators turn the `Analysis` into the output files. The Postman collection is validated with Ajv against the official v2.1 schema and isn't saved if it fails.
+6. Endpoint hosts are checked in code, not left to the prompt (`hosts.ts`). After verification, the full URLs in each endpoint's verified quotes are matched against its path template; for example, `/{ip}/json` matches `https://ipinfo.io/8.8.8.8/json`. If the docs show the endpoint only on another host, the endpoint is moved to that host. If they show it on several hosts, it gets a warning and a risk, and its Postman request is named `[CHECK HOST] ...` with the candidate hosts listed.
+7. The generators turn the `Analysis` into the output files. The Postman collection is validated with Ajv against the official v2.1 schema and isn't saved if it fails.
 
 **Progress events** (for the phase 2 web UI). Pass `onEvent` to `runScout`. Each event has `step`, `detail` and `at`:
 
@@ -172,6 +174,7 @@ tests/             Vitest tests; fixtures/ holds saved HTML, so no network or AP
 | `base_url_found`, `auth_found`, `endpoint_found`, `pagination_found`, `rate_limit_found`, `webhooks_found`, `error_format_found`, `versioning_found`, `not_found`, `risk_found`, `note` | Reported live by the agent |
 | `usage_update` / `budget_exceeded` | Token tally after each model response |
 | `verification_downgrade` | A documented claim failed quote verification |
+| `endpoint_host_corrected` / `endpoint_host_ambiguous` | An endpoint's host was taken from a verified example URL, or the docs show it on several hosts |
 | `run_completed` / `run_failed` | End of the run |
 
 A Next.js route can call `runScout(url, { onEvent: e => stream.write(e), signal: request.signal })` and then `buildOutputs(analysis)` to get the files as strings.

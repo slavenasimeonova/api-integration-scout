@@ -1,3 +1,4 @@
+import type { AnalysisEndpoint } from "../core/hosts.js";
 import type { Analysis, Auth, Endpoint, Finding, FindingStatus } from "../core/schema.js";
 
 export const STATUS_LABEL: Record<FindingStatus, string> = {
@@ -24,10 +25,10 @@ export function baseUrlOf(analysis: Pick<Analysis, "baseUrl">): string | null {
   return value ? value.replace(/\/+$/, "") : null;
 }
 
-export function usableEndpoints(analysis: Pick<Analysis, "endpoints">): Array<Finding<Endpoint> & { value: Endpoint }> {
-  return analysis.endpoints.filter(
-    (e): e is Finding<Endpoint> & { value: Endpoint } => e.status !== "not_found" && e.value !== null,
-  );
+export type UsableEndpoint = AnalysisEndpoint & { value: Endpoint };
+
+export function usableEndpoints(analysis: Pick<Analysis, "endpoints">): UsableEndpoint[] {
+  return analysis.endpoints.filter((e): e is UsableEndpoint => e.status !== "not_found" && e.value !== null);
 }
 
 export type AuthMethod = Finding<Auth> & { value: Auth };

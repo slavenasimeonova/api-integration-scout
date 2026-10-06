@@ -6,6 +6,7 @@ import { createHttpFetcher, type Fetcher } from "./fetcher.js";
 import { SYSTEM_PROMPT, buildUserPrompt } from "./prompt.js";
 import { AgentOutput, agentOutputJsonSchema, type Analysis, type Risk, type RunStats } from "./schema.js";
 import { ALLOWED_TOOLS, DocsSession, MCP_SERVER_NAME, createScoutMcpServer } from "./tools.js";
+import { checkEndpointHosts } from "./hosts.js";
 import { authLabel, verifyAnalysis } from "./verify.js";
 
 /**
@@ -204,6 +205,32 @@ export async function runScout(docsUrl: string, opts: RunScoutOptions = {}): Pro
   }
   if (downgrades.length) warnings.push(`${downgrades.length} finding(s) downgraded from documented to inferred`);
 
+  // Endpoint hosts are checked against the full URLs in verified quotes.
+  const endpoints = checkEndpointHosts(
+    output.endpoints,
+    output.baseUrl.status !== "not_found" ? output.baseUrl.value : null,
+  );
+  for (const ep of endpoints) {
+    const check = ep.hostCheck;
+    if (!check || !ep.value) continue;
+    const name = `${ep.value.method} ${check.status === "corrected" ? check.from : ep.value.path}`;
+    if (check.status === "corrected") {
+      const detail = `${name}: host corrected to ${check.to} from the docs' example URL`;
+      emit({ step: "endpoint_host_corrected", detail, endpoint: name, from: check.from, to: check.to });
+      warnings.push(`Endpoint ${detail} ("${check.evidence}")`);
+    } else {
+      const detail = `${name}: host is ambiguous (docs show ${check.candidates.join(", ")})`;
+      emit({ step: "endpoint_host_ambiguous", detail, endpoint: name, candidates: check.candidates });
+      warnings.push(`Endpoint ${detail}; the Postman request is flagged [CHECK HOST]`);
+      risks.push({
+        severity: "medium",
+        title: `Unclear host for ${name}`,
+        detail: `The docs show this endpoint on more than one host (${check.candidates.join(", ")}). Confirm which host to call.`,
+        origin: "verification",
+      });
+    }
+  }
+
   // Alternative auth methods are kept only when the docs verifiably state them.
   const authAlternatives = output.authAlternatives.filter((alt) => {
     if (alt.status === "documented" && alt.value) return true;
@@ -219,6 +246,7 @@ export async function runScout(docsUrl: string, opts: RunScoutOptions = {}): Pro
     generatedAt: new Date().toISOString(),
     ...output,
     authAlternatives,
+    endpoints,
     risks,
     pagesVisited: session.visits,
     warnings,

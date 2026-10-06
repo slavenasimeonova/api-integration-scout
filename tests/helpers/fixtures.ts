@@ -13,6 +13,7 @@ const ROUTES: Record<string, string> = {
   "/rate-limits": "rate-limits.html",
   "/webhooks": "webhooks.html",
   "/app": "app.html",
+  "/more-endpoints": "more-endpoints.html",
 };
 
 export function readFixture(file: string): string {

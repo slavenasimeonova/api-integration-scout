@@ -113,7 +113,13 @@ export function buildMarkdown(a: Analysis): string {
           "| --- | --- | --- | --- | --- | --- |",
           ...endpoints.map((e) => {
             const params = e.value.keyParams.map((p) => `\`${p.name}\` (${p.in}${p.required ? ", required" : ""})`).join(", ") || "—";
-            return `| ${e.value.method} | \`${cell(e.value.path)}\` | ${cell(e.value.purpose)} | ${cell(params)} | ${STATUS_LABEL[e.status]} | ${sourcesInline(e)} |`;
+            const hostNote =
+              e.hostCheck?.status === "ambiguous"
+                ? ` **(host unclear: ${e.hostCheck.candidates.join(", ")})**`
+                : e.hostCheck?.status === "corrected"
+                  ? " (host from the docs' example URL)"
+                  : "";
+            return `| ${e.value.method} | \`${cell(e.value.path)}\`${cell(hostNote)} | ${cell(e.value.purpose)} | ${cell(params)} | ${STATUS_LABEL[e.status]} | ${sourcesInline(e)} |`;
           }),
         ]
       : ["Not found in docs."]),

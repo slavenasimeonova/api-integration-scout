@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import type { Analysis, Auth, Endpoint, Finding } from "../core/schema.js";
+import type { Analysis, Auth } from "../core/schema.js";
 import {
   STATUS_LABEL,
   baseUrlOf,
@@ -9,6 +9,7 @@ import {
   usableEndpoints,
   type AuthMethod,
   type EndpointTarget,
+  type UsableEndpoint,
 } from "./format.js";
 
 export const POSTMAN_SCHEMA_URL = "https://schema.getpostman.com/json/collection/v2.1.0/collection.json";
@@ -78,6 +79,7 @@ export function buildPostmanCollection(analysis: Analysis, id: string = randomUU
 }
 
 export const AUTH_ALTERNATIVES_FOLDER = "Auth alternatives";
+export const CHECK_HOST_FLAG = "[CHECK HOST]";
 
 /** "query:token", "header:authorization": params that carry credentials and are set by auth instead. */
 function credentialParamKeys(methods: AuthMethod[]): Set<string> {
@@ -113,7 +115,7 @@ function authName(auth: Auth): string {
 /** One sample request showing how to call the API with an alternative documented auth method. */
 function buildAuthAlternative(
   method: AuthMethod,
-  endpoints: Array<Finding<Endpoint> & { value: Endpoint }>,
+  endpoints: UsableEndpoint[],
   baseUrl: string | null,
   credentialParams: Set<string>,
 ) {
@@ -159,7 +161,7 @@ function buildAuthAlternative(
   return { name: `${authName(method.value)}: ${sample ? `${sample.value.method} ${sample.value.path}` : "GET /"}`, request };
 }
 
-function buildItem(ep: Finding<Endpoint> & { value: Endpoint }, target: EndpointTarget, credentialParams: Set<string>) {
+function buildItem(ep: UsableEndpoint, target: EndpointTarget, credentialParams: Set<string>) {
   const { method, path, purpose } = ep.value;
   // Credential params (e.g. ?token=) are supplied by the auth setup, not left empty on every request.
   const keyParams = ep.value.keyParams.filter((p) => !credentialParams.has(`${p.in}:${p.name.toLowerCase()}`));
@@ -180,17 +182,26 @@ function buildItem(ep: Finding<Endpoint> & { value: Endpoint }, target: Endpoint
   const hasBody = BODY_METHODS.has(method);
   if (hasBody) header.push({ key: "Content-Type", value: "application/json" });
 
+  const host = ep.hostCheck;
   const description = [
+    ...(host?.status === "ambiguous"
+      ? [
+          `WARNING: host is ambiguous. The docs show this endpoint on: ${host.candidates.join(", ")}.`,
+          `This request uses ${hostPrefix}; confirm the right host before relying on it.`,
+          "",
+        ]
+      : []),
     purpose,
     "",
     `Status: ${STATUS_LABEL[ep.status]}`,
     ...(target.kind === "absolute" ? [`Note: this endpoint uses ${target.origin}, not {{baseUrl}}.`] : []),
+    ...(host?.status === "corrected" ? [`Host taken from the docs' example URL: "${host.evidence}"`] : []),
     ...(ep.reasoning ? [`Reasoning: ${ep.reasoning}`] : []),
     ...ep.sources.map((s) => `Source: ${s.url}`),
   ].join("\n");
 
   return {
-    name: `${method} ${path}${ep.status === "inferred" ? " (inferred)" : ""}`,
+    name: `${host?.status === "ambiguous" ? `${CHECK_HOST_FLAG} ` : ""}${method} ${path}${ep.status === "inferred" ? " (inferred)" : ""}`,
     request: {
       method,
       header,

@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head><title>More endpoints | Acme Weather API</title></head>
+<body>
+  <main>
+    <h1>More endpoints</h1>
+
+    <h2>GET /stations/{id}/json</h2>
+    <p>Legacy station data. This endpoint is only served from the legacy host:</p>
+    <pre><code>curl https://legacy.acmeweather.example/stations/42/json</code></pre>
+
+    <h2>GET /radar/{region}</h2>
+    <p>Radar tiles, for example https://tiles.acmeweather.example/radar/eu.
+       During the migration the same data is also available at
+       https://api.acmeweather.example/v2/radar/eu.</p>
+
+    <h2>GET /alerts/{id}</h2>
+    <p>Returns one alert subscription, for example
+       https://api.acmeweather.example/v2/alerts/7.</p>
+
+    <h2>GET /history</h2>
+    <p>Historical observations. During outages, see https://status.acmeweather.example/incidents.</p>
+  </main>
+</body>
+</html>

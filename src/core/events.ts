@@ -32,6 +32,8 @@ export type ProgressEvent =
   | (Base<"usage_update"> & { totalTokens: number; maxTokens: number })
   | (Base<"budget_exceeded"> & { totalTokens: number; maxTokens: number })
   | (Base<"verification_downgrade"> & { field: string })
+  | (Base<"endpoint_host_corrected"> & { endpoint: string; from: string; to: string })
+  | (Base<"endpoint_host_ambiguous"> & { endpoint: string; candidates: string[] })
   | (Base<"run_completed"> & { totalTokens: number; costUsd: number })
   | Base<"run_failed">;
 
