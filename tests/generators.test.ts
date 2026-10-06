@@ -73,6 +73,26 @@ describe("Postman collection", () => {
     expect(requests[3]!.request.body?.raw).toContain('"callback_url": "<callback_url>"');
   });
 
+  it("handles endpoints given as full URLs (seen in a real IPinfo run)", () => {
+    const ep = (path: string) => ({
+      status: "documented" as const,
+      value: { method: "GET" as const, path, purpose: "Lookup", keyParams: [{ name: "ip", in: "path" as const, required: true, description: "IP" }] },
+      sources: [],
+    });
+    const c = buildPostmanCollection(
+      { ...analysis, endpoints: [ep("https://ipinfo.io/{ip}/json"), ep("https://api.acmeweather.example/v2/stations/{ip}")] },
+      "test-id",
+    );
+    expect(validatePostmanCollection(c).errors).toEqual([]);
+    const other = c.item.find((f) => f.name === "ipinfo.io")!.item[0]!.request;
+    expect(other.url.raw).toBe("https://ipinfo.io/:ip/json");
+    expect(other.url).toMatchObject({ protocol: "https", host: ["ipinfo", "io"], path: [":ip", "json"] });
+    expect(other.description).toContain("uses https://ipinfo.io, not {{baseUrl}}");
+    // A full URL under the base URL becomes a normal {{baseUrl}} request.
+    const same = c.item.find((f) => f.name === "stations")!.item[0]!.request;
+    expect(same.url.raw).toBe("{{baseUrl}}/stations/:ip");
+  });
+
   it("never contains real secrets", () => {
     const fakeKey = "sk-ant-test-SHOULD-NEVER-APPEAR";
     const original = process.env.ANTHROPIC_API_KEY;

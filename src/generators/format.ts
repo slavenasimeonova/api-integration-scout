@@ -30,6 +30,31 @@ export function usableEndpoints(analysis: Pick<Analysis, "endpoints">): Array<Fi
   );
 }
 
+export type EndpointTarget =
+  | { kind: "relative"; path: string }
+  | { kind: "absolute"; origin: string; host: string; path: string };
+
+/**
+ * The agent is asked for paths relative to the base URL, but docs sometimes
+ * show a full URL (often on another host). Full URLs under the base URL are
+ * made relative; others keep their own origin.
+ */
+export function endpointTarget(path: string, baseUrl: string | null): EndpointTarget {
+  const trimmed = path.trim();
+  if (baseUrl && trimmed.toLowerCase().startsWith(baseUrl.toLowerCase())) {
+    const rest = trimmed.slice(baseUrl.length);
+    if (rest === "" || rest.startsWith("/") || rest.startsWith("?")) {
+      return { kind: "relative", path: rest.startsWith("/") ? rest : `/${rest}` };
+    }
+  }
+  // Parsed by hand: new URL() would percent-encode {placeholders}.
+  const match = /^(https?:\/\/([^/?#]+))(\/[^?#]*)?/i.exec(trimmed);
+  if (match) {
+    return { kind: "absolute", origin: match[1]!, host: match[2]!.toLowerCase(), path: match[3] || "/" };
+  }
+  return { kind: "relative", path: trimmed.startsWith("/") ? trimmed : `/${trimmed}` };
+}
+
 /** "/locations/{id}" -> "/locations/:id" (Postman path variable syntax). */
 export function toPostmanPath(path: string): string {
   return path.replace(/\{([^}]+)\}/g, ":$1");

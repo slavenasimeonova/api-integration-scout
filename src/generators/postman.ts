@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { Analysis, Endpoint, Finding } from "../core/schema.js";
-import { STATUS_LABEL, baseUrlOf, toPostmanPath, usableEndpoints } from "./format.js";
+import { STATUS_LABEL, baseUrlOf, endpointTarget, toPostmanPath, usableEndpoints, type EndpointTarget } from "./format.js";
 
 export const POSTMAN_SCHEMA_URL = "https://schema.getpostman.com/json/collection/v2.1.0/collection.json";
 
@@ -15,10 +15,13 @@ const BODY_METHODS = new Set(["POST", "PUT", "PATCH"]);
  */
 export function buildPostmanCollection(analysis: Analysis, id: string = randomUUID()) {
   const endpoints = usableEndpoints(analysis);
+  const baseUrl = baseUrlOf(analysis);
   const folders = new Map<string, ReturnType<typeof buildItem>[]>();
   for (const ep of endpoints) {
-    const folder = ep.value.path.split("/").find((s) => s && !s.startsWith("{")) ?? "root";
-    folders.set(folder, [...(folders.get(folder) ?? []), buildItem(ep)]);
+    const target = endpointTarget(ep.value.path, baseUrl);
+    const folder =
+      target.kind === "absolute" ? target.host : (target.path.split("/").find((s) => s && !s.startsWith("{")) ?? "root");
+    folders.set(folder, [...(folders.get(folder) ?? []), buildItem(ep, target)]);
   }
 
   const auth = buildAuth(analysis);
@@ -46,9 +49,10 @@ export function buildPostmanCollection(analysis: Analysis, id: string = randomUU
   };
 }
 
-function buildItem(ep: Finding<Endpoint> & { value: Endpoint }) {
+function buildItem(ep: Finding<Endpoint> & { value: Endpoint }, target: EndpointTarget) {
   const { method, path, purpose, keyParams } = ep.value;
-  const postmanPath = toPostmanPath(path);
+  const postmanPath = toPostmanPath(target.path);
+  const hostPrefix = target.kind === "absolute" ? target.origin : "{{baseUrl}}";
   const segments = postmanPath.split("/").filter(Boolean);
   const query = keyParams
     .filter((p) => p.in === "query")
@@ -58,7 +62,7 @@ function buildItem(ep: Finding<Endpoint> & { value: Endpoint }) {
   const bodyParams = keyParams.filter((p) => p.in === "body");
 
   const queryString = query.filter((q) => !q.disabled).map((q) => `${q.key}=`).join("&");
-  const raw = `{{baseUrl}}${postmanPath.startsWith("/") ? "" : "/"}${postmanPath}${queryString ? `?${queryString}` : ""}`;
+  const raw = `${hostPrefix}${postmanPath}${queryString ? `?${queryString}` : ""}`;
 
   const header = [{ key: "Accept", value: "application/json" }, ...headerParams];
   const hasBody = BODY_METHODS.has(method);
@@ -68,6 +72,7 @@ function buildItem(ep: Finding<Endpoint> & { value: Endpoint }) {
     purpose,
     "",
     `Status: ${STATUS_LABEL[ep.status]}`,
+    ...(target.kind === "absolute" ? [`Note: this endpoint uses ${target.origin}, not {{baseUrl}}.`] : []),
     ...(ep.reasoning ? [`Reasoning: ${ep.reasoning}`] : []),
     ...ep.sources.map((s) => `Source: ${s.url}`),
   ].join("\n");
@@ -79,7 +84,9 @@ function buildItem(ep: Finding<Endpoint> & { value: Endpoint }) {
       header,
       url: {
         raw,
-        host: ["{{baseUrl}}"],
+        ...(target.kind === "absolute"
+          ? { protocol: target.origin.split(":")[0]!.toLowerCase(), host: target.host.split(".") }
+          : { host: ["{{baseUrl}}"] }),
         path: segments,
         ...(query.length ? { query } : {}),
         ...(pathVars.length ? { variable: pathVars } : {}),
