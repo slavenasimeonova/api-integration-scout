@@ -1,4 +1,5 @@
-import type { Analysis, Finding, Severity } from "../core/schema.js";
+import type { Analysis, Auth, Finding, Severity } from "../core/schema.js";
+import { authLabel } from "../core/verify.js";
 import type { z } from "zod";
 import { STATUS_LABEL, usableEndpoints } from "./format.js";
 
@@ -23,6 +24,15 @@ function evidence(f: Finding<unknown>): string[] {
   return out;
 }
 
+function describeAuth(v: Auth): string[] {
+  return [
+    `- Type: ${v.type}`,
+    ...(v.location ? [`- Location: ${v.location}`] : []),
+    ...(v.parameterName ? [`- Parameter: \`${v.parameterName}\``] : []),
+    `- ${v.description}`,
+  ];
+}
+
 function section(title: string, f: Finding<unknown>, describe: () => string[]): string[] {
   const body = f.status === "not_found" || f.value === null ? ["Not found in docs."] : describe();
   return [`### ${title}`, "", ...body, "", ...evidence(f), ""];
@@ -33,7 +43,13 @@ export function buildMarkdown(a: Analysis): string {
   const endpoints = usableEndpoints(a);
   const glance: [string, Finding<unknown>, string][] = [
     ["Base URL", a.baseUrl, a.baseUrl.value ?? ""],
-    ["Authentication", a.auth, a.auth.value ? `${a.auth.value.type}: ${a.auth.value.description}` : ""],
+    [
+      "Authentication",
+      a.auth,
+      a.auth.value
+        ? `${a.auth.value.type}: ${a.auth.value.description}${a.authAlternatives.length ? ` (+${a.authAlternatives.length} documented alternative${a.authAlternatives.length > 1 ? "s" : ""})` : ""}`
+        : "",
+    ],
     ["Pagination", a.pagination, a.pagination.value ? `${a.pagination.value.style}: ${a.pagination.value.description}` : ""],
     ["Rate limits", a.rateLimits, a.rateLimits.value?.limits ?? ""],
     ["Webhooks", a.webhooks, a.webhooks.value ? (a.webhooks.value.supported ? `Yes: ${a.webhooks.value.events.join(", ")}` : "Not supported") : ""],
@@ -72,10 +88,23 @@ export function buildMarkdown(a: Analysis): string {
     "## Details",
     "",
     ...section("Base URL", a.baseUrl, () => [`\`${a.baseUrl.value}\``]),
-    ...section("Authentication", a.auth, () => {
-      const v = a.auth.value!;
-      return [`- Type: ${v.type}`, ...(v.location ? [`- Location: ${v.location}`] : []), ...(v.parameterName ? [`- Parameter: \`${v.parameterName}\``] : []), `- ${v.description}`];
-    }),
+    ...section("Authentication (primary)", a.auth, () => describeAuth(a.auth.value!)),
+    ...(a.authAlternatives.length
+      ? [
+          "### Authentication alternatives",
+          "",
+          "Other methods the docs state. Each has a sample request in the Postman \"Auth alternatives\" folder.",
+          "",
+          ...a.authAlternatives.flatMap((alt, i) => [
+            `#### ${i + 1}. ${alt.value ? authLabel(alt.value) : "Unnamed method"}`,
+            "",
+            ...(alt.value ? describeAuth(alt.value) : []),
+            "",
+            ...evidence(alt),
+            "",
+          ]),
+        ]
+      : []),
     "### Endpoints",
     "",
     ...(endpoints.length

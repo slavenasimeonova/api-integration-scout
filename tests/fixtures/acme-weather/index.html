@@ -32,6 +32,10 @@
        header. Keys are created in the dashboard.</p>
     <pre><code>curl https://api.acmeweather.example/v2/forecast?city=Sofia \
   -H "X-Api-Key: YOUR_KEY"</code></pre>
+    <p>Clients that cannot set headers may pass the key as the
+       <code>api_key</code> query parameter instead.</p>
+    <p>Server-to-server integrations can also use HTTP Basic authentication,
+       with the API key as the username and an empty password.</p>
 
     <h2>Versioning</h2>
     <p>The major version is part of the URL path (<code>/v2</code>).</p>

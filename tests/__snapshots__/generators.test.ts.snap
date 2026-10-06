@@ -13,7 +13,7 @@ Current conditions and forecasts for any location.
 | Area | Finding | Status | Source |
 | --- | --- | --- | --- |
 | Base URL | https://api.acmeweather.example/v2 | Documented | [/](https://docs.acmeweather.example/) |
-| Authentication | api_key: API key in the X-Api-Key header | Documented | [/](https://docs.acmeweather.example/) |
+| Authentication | api_key: API key in the X-Api-Key header (+2 documented alternatives) | Documented | [/](https://docs.acmeweather.example/) |
 | Pagination | cursor: Pass next_cursor as cursor | Documented | [/endpoints](https://docs.acmeweather.example/endpoints) |
 | Rate limits | 60 requests per minute per key | Documented | [/rate-limits](https://docs.acmeweather.example/rate-limits) |
 | Webhooks | Yes: alert.triggered, alert.cleared | Documented | [/webhooks](https://docs.acmeweather.example/webhooks) |
@@ -24,6 +24,7 @@ Current conditions and forecasts for any location.
 ## Risks
 
 - **HIGH**: Webhook signature verification required. Verify X-Acme-Signature before trusting payloads.
+- **LOW**: Unverified claim: authAlternatives[2] bearer in header (Authorization). The agent marked this as documented, but quote not found on https://docs.acmeweather.example/. Treat it as inferred and confirm with the provider. _(verification check)_
 - **LOW**: Unverified claim: endpoints[3] POST /alerts. The agent marked this as documented, but quote not found on https://docs.acmeweather.example/endpoints. Treat it as inferred and confirm with the provider. _(verification check)_
 
 ## Open questions
@@ -40,7 +41,7 @@ Current conditions and forecasts for any location.
 > "All requests are made to https://api.acmeweather.example/v2"
 > — [https://docs.acmeweather.example/](https://docs.acmeweather.example/)
 
-### Authentication
+### Authentication (primary)
 
 - Type: api_key
 - Location: header
@@ -51,11 +52,37 @@ Current conditions and forecasts for any location.
 > "sending your API key in the X-Api-Key header"
 > — [https://docs.acmeweather.example/](https://docs.acmeweather.example/)
 
+### Authentication alternatives
+
+Other methods the docs state. Each has a sample request in the Postman "Auth alternatives" folder.
+
+#### 1. api_key in query (api_key)
+
+- Type: api_key
+- Location: query
+- Parameter: \`api_key\`
+- API key as the api_key query parameter
+
+**Status:** Documented
+> "may pass the key as the api_key query parameter instead"
+> — [https://docs.acmeweather.example/](https://docs.acmeweather.example/)
+
+#### 2. basic in header (Authorization)
+
+- Type: basic
+- Location: header
+- Parameter: \`Authorization\`
+- HTTP Basic with the API key as username
+
+**Status:** Documented
+> "HTTP Basic authentication, with the API key as the username and an empty password"
+> — [https://docs.acmeweather.example/](https://docs.acmeweather.example/)
+
 ### Endpoints
 
 | Method | Path | Purpose | Key params | Status | Source |
 | --- | --- | --- | --- | --- | --- |
-| GET | \`/forecast\` | 7-day forecast for a city | \`city\` (query, required), \`units\` (query) | Documented | [/endpoints](https://docs.acmeweather.example/endpoints) |
+| GET | \`/forecast\` | 7-day forecast for a city | \`city\` (query, required), \`units\` (query), \`api_key\` (query) | Documented | [/endpoints](https://docs.acmeweather.example/endpoints) |
 | GET | \`/locations\` | List saved locations | \`cursor\` (query) | Documented | [/endpoints](https://docs.acmeweather.example/endpoints) |
 | GET | \`/locations/{id}\` | Saved location details | \`id\` (path, required) | Documented | [/endpoints](https://docs.acmeweather.example/endpoints) |
 | POST | \`/alerts\` | Subscribe to severe-weather alerts | \`location_id\` (body, required), \`callback_url\` (body, required) | Inferred | [/endpoints](https://docs.acmeweather.example/endpoints) |
@@ -115,14 +142,16 @@ _Reasoning:_ The base URL ends in /v2; no deprecation policy was found.
 
 ## Pages visited
 
-- https://docs.acmeweather.example/: 580 chars
+- https://docs.acmeweather.example/: 795 chars
 - https://docs.acmeweather.example/endpoints: 497 chars
 - https://docs.acmeweather.example/rate-limits: 202 chars
 - https://docs.acmeweather.example/webhooks: 307 chars
 
 ## Warnings
 
-- 1 finding(s) downgraded from documented to inferred
+- 2 finding(s) downgraded from documented to inferred
+- Auth alternative "bearer in header (Authorization)" left out: not verifiably stated in the docs (inferred)
+- Auth alternative "oauth2" left out: not verifiably stated in the docs (inferred)
 
 ## Run
 

@@ -14,7 +14,9 @@ Every finding has a status:
 Never present an inference as documented.
 
 ## What to extract
-apiName, summary, baseUrl, auth, endpoints (the main ones, at most 15, each with method, path relative to the base URL, purpose, and key params), pagination, rateLimits, webhooks, errorFormat, versioning.
+apiName, summary, baseUrl, auth, authAlternatives, endpoints (the main ones, at most 15, each with method, path relative to the base URL, purpose, and key params), pagination, rateLimits, webhooks, errorFormat, versioning.
+
+Authentication: many APIs accept several methods (e.g. Bearer header, token as a query parameter, HTTP Basic), and different client systems need different ones. Put the primary or recommended method in "auth" and every other method the docs state in "authAlternatives", each with its own verbatim quote. Record the credential's parameter name (e.g. "token", "X-Api-Key") and location. Only list methods the docs actually state; never add one because it is common elsewhere.
 
 ## Risks and open questions
 List integration risks with severity, for example: rate limits not documented; webhook signature verification required; pagination style unclear; no versioning policy; auth requires OAuth app review; docs pages that render with JavaScript so content may be incomplete. List open questions a developer should ask the API provider.

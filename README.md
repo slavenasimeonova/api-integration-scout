@@ -57,7 +57,7 @@ Saved to `outputs/<api-name>/`:
 | --- | --- |
 | `analysis.json` | Full structured result (schema: `Analysis` in `src/core/schema.ts`) |
 | `analysis.md` | Human-readable integration summary |
-| `postman_collection.json` | Postman Collection v2.1 using `{{baseUrl}}` and `{{apiKey}}`. Validated against the official schema before saving |
+| `postman_collection.json` | Postman Collection v2.1 using `{{baseUrl}}` and `{{apiKey}}`. Validated against the official schema before saving. Collection auth is the primary documented method; every other documented method (e.g. `?token={{apiKey}}`, HTTP Basic) gets a sample request in the **Auth alternatives** folder |
 | `postman_environment.json` | Environment template: public `baseUrl` prefilled when known, `apiKey` empty |
 | `sequence.mmd` | Mermaid sequence diagram of the main integration flow |
 
@@ -158,7 +158,8 @@ tests/             Vitest tests; fixtures/ holds saved HTML, so no network or AP
 2. `fetch_page` fetches pages itself rather than using the SDK's WebFetch, which returns a model-written summary. Fetching the raw page keeps the exact text, which is needed to verify quotes. It enforces the same-site rule and the page limit, and caps the text sent to the model at 12,000 characters per page. Page text is marked as untrusted content.
 3. Pages with almost no text, or short pages that look client-rendered (a `<noscript>` notice or an empty `#root` / `#__next` mount), trigger a `low_text_warning`. They also produce the risk *"docs page may require JavaScript rendering; content may be incomplete"*.
 4. The model's structured output is parsed with Zod. Then `verify.ts` checks each documented quote against the page it cites. Matching is normalized: case, whitespace, punctuation and Unicode spacing variants are ignored, but only whole words count.
-5. The generators turn the `Analysis` into the output files. The Postman collection is validated with Ajv against the official v2.1 schema and isn't saved if it fails.
+5. Authentication: different client systems often need different auth methods, so every documented method is kept. `auth` holds the primary one and `authAlternatives` the rest, each with its own verified quote. Only documented methods go into the collection. An alternative that is inferred, or fails verification, is left out and listed in `warnings`. If the primary method is only inferred, the first documented alternative becomes the collection auth.
+6. The generators turn the `Analysis` into the output files. The Postman collection is validated with Ajv against the official v2.1 schema and isn't saved if it fails.
 
 **Progress events** (for the phase 2 web UI). Pass `onEvent` to `runScout`. Each event has `step`, `detail` and `at`:
 

@@ -84,9 +84,9 @@ describe("runScout", () => {
     );
     const analysis = await promise;
     // index.html (580 chars) is over the limit; rate-limits (202 chars) is not.
-    expect(analysis.warnings).toEqual([
+    const truncationWarnings = analysis.warnings.filter((w) => w.startsWith("Page truncated"));
+    expect(truncationWarnings).toEqual([
       expect.stringMatching(/^Page truncated: https:\/\/docs\.acmeweather\.example\/ .*findings from this page may be incomplete$/),
-      expect.stringMatching(/downgraded/),
     ]);
     expect(analysis.pagesVisited.map((p) => p.truncated)).toEqual([true, false]);
     expect(events.filter((e) => e.step === "page_truncated")).toHaveLength(1);

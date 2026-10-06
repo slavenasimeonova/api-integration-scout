@@ -75,6 +75,31 @@ export const ACME_OUTPUT: AgentOutput = {
     value: { type: "api_key", location: "header", parameterName: "X-Api-Key", description: "API key in the X-Api-Key header" },
     sources: [{ url: `${D}/`, quote: "sending your API key in the X-Api-Key header" }],
   },
+  authAlternatives: [
+    {
+      status: "documented",
+      value: { type: "api_key", location: "query", parameterName: "api_key", description: "API key as the api_key query parameter" },
+      sources: [{ url: `${D}/`, quote: "may pass the key as the api_key query parameter instead" }],
+    },
+    {
+      status: "documented",
+      value: { type: "basic", location: "header", parameterName: "Authorization", description: "HTTP Basic with the API key as username" },
+      sources: [{ url: `${D}/`, quote: "HTTP Basic authentication, with the API key as the username and an empty password" }],
+    },
+    // Not in the docs: claimed as documented with a made-up quote. Must be dropped.
+    {
+      status: "documented",
+      value: { type: "bearer", location: "header", parameterName: "Authorization", description: "Bearer token" },
+      sources: [{ url: `${D}/`, quote: "You can also send the key as a Bearer token" }],
+    },
+    // Not in the docs: the agent's own guess. Must be dropped.
+    {
+      status: "inferred",
+      value: { type: "oauth2", description: "Probably OAuth for partner apps" },
+      sources: [],
+      reasoning: "Many weather APIs offer OAuth.",
+    },
+  ],
   endpoints: [
     {
       status: "documented",
@@ -85,6 +110,8 @@ export const ACME_OUTPUT: AgentOutput = {
         keyParams: [
           { name: "city", in: "query", required: true, description: "City name" },
           { name: "units", in: "query", required: false, description: "metric or imperial" },
+          // A credential param: supplied by the auth setup, not as an empty query param.
+          { name: "api_key", in: "query", required: false, description: "API key (alternative to the header)" },
         ],
       },
       sources: [{ url: `${D}/endpoints`, quote: "Returns a 7-day forecast for a city." }],

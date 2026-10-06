@@ -6,7 +6,7 @@ import { createHttpFetcher, type Fetcher } from "./fetcher.js";
 import { SYSTEM_PROMPT, buildUserPrompt } from "./prompt.js";
 import { AgentOutput, agentOutputJsonSchema, type Analysis, type Risk, type RunStats } from "./schema.js";
 import { ALLOWED_TOOLS, DocsSession, MCP_SERVER_NAME, createScoutMcpServer } from "./tools.js";
-import { verifyAnalysis } from "./verify.js";
+import { authLabel, verifyAnalysis } from "./verify.js";
 
 /**
  * Seam between the core and the Agent SDK. Production calls query(); tests
@@ -203,6 +203,14 @@ export async function runScout(docsUrl: string, opts: RunScoutOptions = {}): Pro
     });
   }
   if (downgrades.length) warnings.push(`${downgrades.length} finding(s) downgraded from documented to inferred`);
+
+  // Alternative auth methods are kept only when the docs verifiably state them.
+  const authAlternatives = output.authAlternatives.filter((alt) => {
+    if (alt.status === "documented" && alt.value) return true;
+    const label = alt.value ? authLabel(alt.value) : "unnamed method";
+    warnings.push(`Auth alternative "${label}" left out: not verifiably stated in the docs (${alt.status})`);
+    return false;
+  });
   if (session.pagesFetched >= config.maxPages) warnings.push(`Page limit of ${config.maxPages} reached; some docs may not have been read`);
 
   const analysis: Analysis = {
@@ -210,6 +218,7 @@ export async function runScout(docsUrl: string, opts: RunScoutOptions = {}): Pro
     docsUrl: rootUrl,
     generatedAt: new Date().toISOString(),
     ...output,
+    authAlternatives,
     risks,
     pagesVisited: session.visits,
     warnings,

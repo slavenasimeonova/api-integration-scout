@@ -42,6 +42,7 @@ describe("AgentOutput schema", () => {
       summary: "Y",
       baseUrl: notFound,
       auth: notFound,
+      authAlternatives: [],
       endpoints: [],
       pagination: notFound,
       rateLimits: notFound,

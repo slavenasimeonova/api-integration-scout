@@ -103,7 +103,12 @@ export const AgentOutput = z.object({
   apiName: z.string().describe("Short human name of the API, e.g. 'Stripe' or 'OpenWeather'"),
   summary: z.string().describe("Two or three sentences on what the API does"),
   baseUrl: finding(z.string()),
-  auth: finding(AuthValue),
+  auth: finding(AuthValue).describe("The primary (recommended or first-described) authentication method"),
+  authAlternatives: z
+    .array(finding(AuthValue))
+    .describe(
+      "Every OTHER authentication method the docs explicitly state (e.g. token as a query parameter, HTTP Basic), each with its own source quote. Empty if the docs state only one. Never include a method the docs don't state.",
+    ),
   endpoints: z.array(finding(EndpointValue)),
   pagination: finding(PaginationValue),
   rateLimits: finding(RateLimitValue),

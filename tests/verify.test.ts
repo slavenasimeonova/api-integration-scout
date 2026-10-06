@@ -23,6 +23,7 @@ function output(overrides: Partial<AgentOutput>): AgentOutput {
     summary: "Weather data.",
     baseUrl: notFound,
     auth: notFound,
+    authAlternatives: [],
     endpoints: [],
     pagination: notFound,
     rateLimits: notFound,

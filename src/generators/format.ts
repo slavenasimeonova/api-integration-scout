@@ -1,4 +1,4 @@
-import type { Analysis, Endpoint, Finding, FindingStatus } from "../core/schema.js";
+import type { Analysis, Auth, Endpoint, Finding, FindingStatus } from "../core/schema.js";
 
 export const STATUS_LABEL: Record<FindingStatus, string> = {
   documented: "Documented",
@@ -28,6 +28,26 @@ export function usableEndpoints(analysis: Pick<Analysis, "endpoints">): Array<Fi
   return analysis.endpoints.filter(
     (e): e is Finding<Endpoint> & { value: Endpoint } => e.status !== "not_found" && e.value !== null,
   );
+}
+
+export type AuthMethod = Finding<Auth> & { value: Auth };
+
+/**
+ * Every documented auth method, primary first, without duplicates. Only
+ * documented methods count: an inferred primary is left out, so the first
+ * documented alternative takes its place.
+ */
+export function documentedAuthMethods(analysis: Pick<Analysis, "auth" | "authAlternatives">): AuthMethod[] {
+  const methods: AuthMethod[] = [];
+  const seen = new Set<string>();
+  for (const f of [analysis.auth, ...analysis.authAlternatives]) {
+    if (f.status !== "documented" || !f.value) continue;
+    const key = `${f.value.type}|${f.value.location ?? ""}|${(f.value.parameterName ?? "").toLowerCase()}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    methods.push(f as AuthMethod);
+  }
+  return methods;
 }
 
 export type EndpointTarget =

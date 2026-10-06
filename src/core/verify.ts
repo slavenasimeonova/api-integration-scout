@@ -1,5 +1,5 @@
 import { normalizeUrl } from "./html.js";
-import type { AgentOutput, Finding, Source } from "./schema.js";
+import type { AgentOutput, Auth, Finding, Source } from "./schema.js";
 import type { StoredPage } from "./tools.js";
 
 /** Quotes shorter than this after normalization are too weak to count as evidence. */
@@ -51,12 +51,21 @@ export function verifyAnalysis(output: AgentOutput, pages: ReadonlyMap<string, S
     // Each field keeps its own value type; the cast only satisfies the loop.
     (result as Record<string, unknown>)[key] = check(key, result[key] as Finding<unknown>);
   }
+  result.authAlternatives = result.authAlternatives.map((alt, i) =>
+    check(`authAlternatives[${i}] ${alt.value ? authLabel(alt.value) : `#${i + 1}`}`, alt),
+  );
   result.endpoints = result.endpoints.map((ep, i) => {
     const label = ep.value ? `${ep.value.method} ${ep.value.path}` : `#${i + 1}`;
     return check(`endpoints[${i}] ${label}`, ep);
   });
 
   return { output: result, downgrades };
+}
+
+/** Short human label for an auth method, e.g. "api_key in query (token)". */
+export function authLabel(auth: Auth): string {
+  const where = auth.location && auth.location !== "none" ? ` in ${auth.location}` : "";
+  return `${auth.type}${where}${auth.parameterName ? ` (${auth.parameterName})` : ""}`;
 }
 
 function verifyFinding<T>(
