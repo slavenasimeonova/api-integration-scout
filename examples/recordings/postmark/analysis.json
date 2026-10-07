@@ -1,0 +1,404 @@
+{
+  "schemaVersion": 1,
+  "docsUrl": "https://postmarkapp.com/developer/api/overview",
+  "generatedAt": "2026-10-07T08:36:26.374Z",
+  "apiName": "Postmark",
+  "summary": "Postmark is a REST/JSON email delivery API for transactional and bulk email. It covers sending (single, batch, template), bounces, message search, servers, domains, sender signatures, stats, suppressions, inbound processing and webhooks.",
+  "baseUrl": {
+    "status": "documented",
+    "value": "https://api.postmarkapp.com",
+    "sources": [
+      {
+        "url": "https://postmarkapp.com/developer/api/overview",
+        "quote": "https://api.postmarkapp.com"
+      }
+    ]
+  },
+  "auth": {
+    "status": "documented",
+    "value": {
+      "type": "api_key",
+      "location": "header",
+      "parameterName": "X-Postmark-Server-Token",
+      "description": "Server Token for server-level requests (send email, bounces, etc.). Each reference page states which token to use."
+    },
+    "sources": [
+      {
+        "url": "https://postmarkapp.com/developer/api/overview",
+        "quote": "Server Token — X-Postmark-Server-Token"
+      }
+    ]
+  },
+  "authAlternatives": [
+    {
+      "status": "documented",
+      "value": {
+        "type": "api_key",
+        "location": "header",
+        "parameterName": "X-Postmark-Account-Token",
+        "description": "Account Token for account-level endpoints (servers, domains, sender signatures, etc.)."
+      },
+      "sources": [
+        {
+          "url": "https://postmarkapp.com/developer/api/overview",
+          "quote": "Account Token — X-Postmark-Account-Token"
+        }
+      ]
+    }
+  ],
+  "endpoints": [
+    {
+      "status": "documented",
+      "value": {
+        "method": "POST",
+        "path": "/email",
+        "purpose": "Send a single email",
+        "keyParams": [
+          {
+            "name": "From",
+            "in": "body",
+            "required": true,
+            "description": "Sender address; needs a confirmed Sender Signature"
+          },
+          {
+            "name": "To",
+            "in": "body",
+            "required": true,
+            "description": "Comma-separated recipients; max 50 across To/Cc/Bcc"
+          },
+          {
+            "name": "HtmlBody",
+            "in": "body",
+            "required": false,
+            "description": "Required if no TextBody"
+          },
+          {
+            "name": "TextBody",
+            "in": "body",
+            "required": false,
+            "description": "Required if no HtmlBody"
+          },
+          {
+            "name": "MessageStream",
+            "in": "body",
+            "required": false,
+            "description": "Defaults to the 'outbound' stream"
+          },
+          {
+            "name": "X-Postmark-Server-Token",
+            "in": "header",
+            "required": true,
+            "description": "Server token"
+          }
+        ]
+      },
+      "sources": [
+        {
+          "url": "https://postmarkapp.com/developer/api/email-api",
+          "quote": "Send a single email"
+        }
+      ]
+    },
+    {
+      "status": "documented",
+      "value": {
+        "method": "POST",
+        "path": "/email/batch",
+        "purpose": "Send up to 500 messages per call",
+        "keyParams": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "description": "JSON array of message objects"
+          },
+          {
+            "name": "X-Postmark-Server-Token",
+            "in": "header",
+            "required": true,
+            "description": "Server token"
+          }
+        ]
+      },
+      "sources": [
+        {
+          "url": "https://postmarkapp.com/developer/api/email-api",
+          "quote": "the batch endpoint accepts up to 500 messages per API call, and up to 50 MB payload size"
+        }
+      ]
+    },
+    {
+      "status": "documented",
+      "value": {
+        "method": "GET",
+        "path": "/deliverystats",
+        "purpose": "Get bounce and inactive-email totals",
+        "keyParams": [
+          {
+            "name": "X-Postmark-Server-Token",
+            "in": "header",
+            "required": true,
+            "description": "Server token"
+          }
+        ]
+      },
+      "sources": [
+        {
+          "url": "https://postmarkapp.com/developer/api/bounce-api",
+          "quote": "/deliverystats"
+        }
+      ]
+    },
+    {
+      "status": "inferred",
+      "value": {
+        "method": "GET",
+        "path": "/bounces",
+        "purpose": "Search bounces",
+        "keyParams": [
+          {
+            "name": "count",
+            "in": "query",
+            "required": true,
+            "description": "Max 500"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": true,
+            "description": "count+offset <= 10,000"
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "required": false,
+            "description": "Bounce type filter"
+          },
+          {
+            "name": "fromdate",
+            "in": "query",
+            "required": false,
+            "description": "Eastern Time"
+          },
+          {
+            "name": "todate",
+            "in": "query",
+            "required": false,
+            "description": "Eastern Time"
+          }
+        ]
+      },
+      "sources": [
+        {
+          "url": "https://postmarkapp.com/developer/api/bounce-api"
+        }
+      ],
+      "reasoning": "Downgraded from documented: quote not found on https://postmarkapp.com/developer/api/bounce-api."
+    },
+    {
+      "status": "documented",
+      "value": {
+        "method": "GET",
+        "path": "/bounces/{bounceid}",
+        "purpose": "Get a single bounce",
+        "keyParams": [
+          {
+            "name": "bounceid",
+            "in": "path",
+            "required": true,
+            "description": "Bounce ID"
+          }
+        ]
+      },
+      "sources": [
+        {
+          "url": "https://postmarkapp.com/developer/api/bounce-api",
+          "quote": "/bounces/{bounceid}"
+        }
+      ]
+    }
+  ],
+  "pagination": {
+    "status": "documented",
+    "value": {
+      "style": "offset",
+      "parameters": [
+        "count",
+        "offset"
+      ],
+      "description": "Bounce search uses count (max 500) and offset; count+offset cannot exceed 10,000, so use fromdate/todate to retrieve more. Other endpoints were not checked."
+    },
+    "sources": [
+      {
+        "url": "https://postmarkapp.com/developer/api/bounce-api",
+        "quote": "Count + Offset cannot exceed 10,000 bounces."
+      }
+    ]
+  },
+  "rateLimits": {
+    "status": "not_found",
+    "value": null,
+    "sources": [
+      {
+        "url": "https://postmarkapp.com/developer/api/overview"
+      }
+    ]
+  },
+  "webhooks": {
+    "status": "documented",
+    "value": {
+      "supported": true,
+      "events": [
+        "Delivery",
+        "Bounce",
+        "Spam complaint",
+        "Open",
+        "Click",
+        "Subscription change",
+        "Inbound"
+      ],
+      "signatureVerification": "No HMAC signing. Protect with HTTP Basic auth in the URL and IP allowlisting.",
+      "description": "Postmark POSTs JSON to your URL on events. Endpoints are verified on create/edit and must return 200. Non-2xx responses are retried. Event types that keep failing are paused."
+    },
+    "sources": [
+      {
+        "url": "https://postmarkapp.com/developer/webhooks/webhooks-overview",
+        "quote": "Postmark does not currently support HMAC webhook signature verification."
+      }
+    ]
+  },
+  "errorFormat": {
+    "status": "documented",
+    "value": {
+      "description": "JSON body with numeric ErrorCode and Message. The code is also echoed in the X-PM-ApiErrorCode header. Most input errors are HTTP 422; auth failures are 401. Batch sends return per-message codes inside a 200.",
+      "example": "{\"ErrorCode\": 403, \"Message\": \"Invalid request field(s): 'From'.\"}"
+    },
+    "sources": [
+      {
+        "url": "https://postmarkapp.com/developer/api/overview",
+        "quote": "it returns a JSON body with a numeric ErrorCode and a human-readable Message"
+      }
+    ]
+  },
+  "versioning": {
+    "status": "not_found",
+    "value": null,
+    "sources": [
+      {
+        "url": "https://postmarkapp.com/developer/api/overview"
+      }
+    ]
+  },
+  "risks": [
+    {
+      "severity": "high",
+      "title": "No webhook signatures",
+      "detail": "Webhooks are not signed. You must rely on Basic auth in the URL, IP allowlisting and payload validation.",
+      "origin": "agent"
+    },
+    {
+      "severity": "medium",
+      "title": "Rate limits undocumented",
+      "detail": "The docs mention 429 but give no numeric limits or rate-limit headers on the pages read.",
+      "origin": "agent"
+    },
+    {
+      "severity": "medium",
+      "title": "No versioning policy found",
+      "detail": "The URLs have no version and no versioning or changelog policy was found.",
+      "origin": "agent"
+    },
+    {
+      "severity": "medium",
+      "title": "Two token types",
+      "detail": "Server and account tokens apply to different endpoints. Using the wrong one returns 401 (error code 10).",
+      "origin": "agent"
+    },
+    {
+      "severity": "medium",
+      "title": "Batch partial failures",
+      "detail": "Batch sends return HTTP 200 with per-message error codes, so you must inspect each result.",
+      "origin": "agent"
+    },
+    {
+      "severity": "low",
+      "title": "Offset pagination cap",
+      "detail": "Bounce search is capped at 10,000 results and its date filters use Eastern Time.",
+      "origin": "agent"
+    },
+    {
+      "severity": "low",
+      "title": "Sender and approval restrictions",
+      "detail": "Sending needs a confirmed Sender Signature, and new accounts are restricted until approved. The Bulk API requires approval.",
+      "origin": "agent"
+    },
+    {
+      "severity": "low",
+      "title": "Incomplete page coverage",
+      "detail": "Fetched pages were truncated and only 5 pages were allowed, so most endpoints were not read.",
+      "origin": "agent"
+    },
+    {
+      "severity": "low",
+      "title": "Unverified claim: endpoints[3] GET /bounces",
+      "detail": "The agent marked this as documented, but quote not found on https://postmarkapp.com/developer/api/bounce-api. Treat it as inferred and confirm with the provider.",
+      "origin": "verification"
+    }
+  ],
+  "openQuestions": [
+    "What are the numeric rate limits per token or server, and are rate-limit headers returned?",
+    "Is there an API versioning or deprecation policy?",
+    "Do other list endpoints (messages, suppressions, templates) use count/offset or other pagination?",
+    "How many retry attempts does a webhook get, and over what schedule?",
+    "Will HMAC webhook signing be added?"
+  ],
+  "pagesVisited": [
+    {
+      "url": "https://postmarkapp.com/developer/api/overview",
+      "status": "fetched",
+      "textLength": 20370,
+      "lowText": false,
+      "truncated": true
+    },
+    {
+      "url": "https://postmarkapp.com/developer/api/email-api",
+      "status": "fetched",
+      "textLength": 15399,
+      "lowText": false,
+      "truncated": true
+    },
+    {
+      "url": "https://postmarkapp.com/developer/webhooks/webhooks-overview",
+      "status": "fetched",
+      "textLength": 15917,
+      "lowText": false,
+      "truncated": true
+    },
+    {
+      "url": "https://postmarkapp.com/developer/api/bounce-api",
+      "status": "fetched",
+      "textLength": 19653,
+      "lowText": false,
+      "truncated": true
+    }
+  ],
+  "warnings": [
+    "Page truncated: https://postmarkapp.com/developer/api/overview (20370 chars, first 12000 sent to the model); findings from this page may be incomplete",
+    "Page truncated: https://postmarkapp.com/developer/api/email-api (15399 chars, first 12000 sent to the model); findings from this page may be incomplete",
+    "Page truncated: https://postmarkapp.com/developer/webhooks/webhooks-overview (15917 chars, first 12000 sent to the model); findings from this page may be incomplete",
+    "Page truncated: https://postmarkapp.com/developer/api/bounce-api (19653 chars, first 12000 sent to the model); findings from this page may be incomplete",
+    "1 finding(s) downgraded from documented to inferred"
+  ],
+  "run": {
+    "model": "claude-sonnet-5-5",
+    "startedAt": "2026-10-07T08:35:56.425Z",
+    "durationMs": 27798,
+    "numTurns": 13,
+    "inputTokens": 8,
+    "outputTokens": 4011,
+    "cacheReadInputTokens": 61086,
+    "cacheCreationInputTokens": 30550,
+    "totalTokens": 95655,
+    "costUsd": 0.1297132
+  }
+}

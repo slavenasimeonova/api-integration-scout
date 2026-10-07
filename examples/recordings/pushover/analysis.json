@@ -1,0 +1,274 @@
+{
+  "schemaVersion": 1,
+  "docsUrl": "https://pushover.net/api",
+  "generatedAt": "2026-10-07T08:35:54.983Z",
+  "apiName": "Pushover",
+  "summary": "Pushover is a REST API for sending push notifications to users' devices. You register an application to get a token, then POST messages to a user or group key. It also offers receipts and callbacks for emergency-priority messages, plus subscription, groups, glances, teams, licensing and open-client APIs.",
+  "baseUrl": {
+    "status": "documented",
+    "value": "https://api.pushover.net/1",
+    "sources": [
+      {
+        "url": "https://pushover.net/api",
+        "quote": "https://api.pushover.net/1/messages.json"
+      }
+    ]
+  },
+  "auth": {
+    "status": "documented",
+    "value": {
+      "type": "api_key",
+      "location": "query",
+      "parameterName": "token",
+      "description": "Application API token sent as the 'token' body parameter, together with a 'user' key (user or group) on message requests."
+    },
+    "sources": [
+      {
+        "url": "https://pushover.net/api",
+        "quote": "token - your application's API token (required)"
+      }
+    ]
+  },
+  "authAlternatives": [],
+  "endpoints": [
+    {
+      "status": "documented",
+      "value": {
+        "method": "POST",
+        "path": "/messages.json",
+        "purpose": "Send a notification to a user, group or devices",
+        "keyParams": [
+          {
+            "name": "token",
+            "in": "body",
+            "required": true,
+            "description": "Application API token"
+          },
+          {
+            "name": "user",
+            "in": "body",
+            "required": true,
+            "description": "User or group key; comma-separated list up to 50 users"
+          },
+          {
+            "name": "message",
+            "in": "body",
+            "required": true,
+            "description": "Message body"
+          },
+          {
+            "name": "device",
+            "in": "body",
+            "required": false,
+            "description": "Target device name(s)"
+          },
+          {
+            "name": "title",
+            "in": "body",
+            "required": false,
+            "description": "Message title"
+          },
+          {
+            "name": "priority",
+            "in": "body",
+            "required": false,
+            "description": "-2 to 2"
+          },
+          {
+            "name": "html",
+            "in": "body",
+            "required": false,
+            "description": "1 to enable HTML"
+          }
+        ]
+      },
+      "sources": [
+        {
+          "url": "https://pushover.net/api",
+          "quote": "POST an HTTPS request to"
+        }
+      ]
+    },
+    {
+      "status": "documented",
+      "value": {
+        "method": "GET",
+        "path": "/receipts/{receipt}.json",
+        "purpose": "Poll status of an emergency-priority notification",
+        "keyParams": [
+          {
+            "name": "receipt",
+            "in": "path",
+            "required": true,
+            "description": "Receipt ID"
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "required": true,
+            "description": "App token"
+          }
+        ]
+      },
+      "sources": [
+        {
+          "url": "https://pushover.net/api/receipts",
+          "quote": "Submit a GET request (no faster than once every 5 seconds) to:"
+        }
+      ]
+    },
+    {
+      "status": "documented",
+      "value": {
+        "method": "POST",
+        "path": "/receipts/{receipt}/cancel.json",
+        "purpose": "Cancel emergency-priority retries",
+        "keyParams": [
+          {
+            "name": "token",
+            "in": "body",
+            "required": true,
+            "description": "App token"
+          }
+        ]
+      },
+      "sources": [
+        {
+          "url": "https://pushover.net/api/receipts",
+          "quote": "To cancel an emergency-priority notification early, you can send a POST request to our API:"
+        }
+      ]
+    },
+    {
+      "status": "documented",
+      "value": {
+        "method": "POST",
+        "path": "/receipts/cancel_by_tag/{tag}.json",
+        "purpose": "Cancel emergency retries by tag",
+        "keyParams": [
+          {
+            "name": "token",
+            "in": "body",
+            "required": true,
+            "description": "App token"
+          }
+        ]
+      },
+      "sources": [
+        {
+          "url": "https://pushover.net/api/receipts",
+          "quote": "To cancel retries for all messages with a given tag, submit a POST"
+        }
+      ]
+    }
+  ],
+  "pagination": {
+    "status": "not_found",
+    "value": null,
+    "sources": []
+  },
+  "rateLimits": {
+    "status": "not_found",
+    "value": null,
+    "sources": []
+  },
+  "webhooks": {
+    "status": "documented",
+    "value": {
+      "supported": true,
+      "events": [
+        "emergency notification acknowledged"
+      ],
+      "signatureVerification": "Not documented on the pages read.",
+      "description": "If a callback URL is given on an emergency message, Pushover POSTs receipt, acknowledged, acknowledged_at, acknowledged_by and acknowledged_by_device. It retries after one minute if no 2xx is returned."
+    },
+    "sources": [
+      {
+        "url": "https://pushover.net/api/receipts",
+        "quote": "If our API servers do not receive a successful (2xx) HTTP response from your callback URL, we will retry again in one minute."
+      }
+    ]
+  },
+  "errorFormat": {
+    "status": "not_found",
+    "value": null,
+    "sources": []
+  },
+  "versioning": {
+    "status": "documented",
+    "value": {
+      "scheme": "url_path",
+      "current": "1",
+      "description": "Version number is in the URL path (/1/)."
+    },
+    "sources": [
+      {
+        "url": "https://pushover.net/api",
+        "quote": "Pushover uses a simple, versioned REST API"
+      }
+    ]
+  },
+  "risks": [
+    {
+      "severity": "medium",
+      "title": "Rate limits not read",
+      "detail": "The 'Limitations' and 'Being Friendly' sections were in the truncated part of the page. Limits are unconfirmed.",
+      "origin": "agent"
+    },
+    {
+      "severity": "medium",
+      "title": "Callbacks unsigned",
+      "detail": "No signature verification was seen for callback POSTs, so the endpoint should be protected some other way.",
+      "origin": "agent"
+    },
+    {
+      "severity": "low",
+      "title": "Secrets in query string",
+      "detail": "Receipt polling puts the app token in the URL query, where it can end up in logs.",
+      "origin": "agent"
+    },
+    {
+      "severity": "low",
+      "title": "Deprecation",
+      "detail": "The site announces that the GitHub notification endpoint is being deprecated in favor of webhooks.",
+      "origin": "agent"
+    }
+  ],
+  "openQuestions": [
+    "What are the message size limits and monthly message quotas per app?",
+    "What is the error response format and which status codes are used?",
+    "Are callbacks signed or sent from fixed IPs?",
+    "Do the Glances, Groups and Subscription APIs use the same token auth?"
+  ],
+  "pagesVisited": [
+    {
+      "url": "https://pushover.net/api",
+      "status": "fetched",
+      "textLength": 33097,
+      "lowText": false,
+      "truncated": true
+    },
+    {
+      "url": "https://pushover.net/api/receipts",
+      "status": "fetched",
+      "textLength": 4769,
+      "lowText": false,
+      "truncated": false
+    }
+  ],
+  "warnings": [
+    "Page truncated: https://pushover.net/api (33097 chars, first 12000 sent to the model); findings from this page may be incomplete"
+  ],
+  "run": {
+    "model": "claude-sonnet-5-5",
+    "startedAt": "2026-10-07T08:35:32.660Z",
+    "durationMs": 20433,
+    "numTurns": 8,
+    "inputTokens": 6,
+    "outputTokens": 2639,
+    "cacheReadInputTokens": 23095,
+    "cacheCreationInputTokens": 7913,
+    "totalTokens": 33653,
+    "costUsd": 0.05179349999999999
+  }
+}
