@@ -91,6 +91,12 @@ export const EndpointValue = z.object({
     .describe("Path relative to the base URL, e.g. /v1/customers/{id}. If the endpoint is on a different host, the full URL instead."),
   purpose: z.string(),
   keyParams: z.array(EndpointParam),
+  exampleBody: z
+    .string()
+    .optional()
+    .describe(
+      "Example request body copied verbatim from the docs (e.g. the JSON in a curl -d example). Omit unless the docs show one for this endpoint; never write one yourself.",
+    ),
 });
 
 export const Severity = z.enum(["low", "medium", "high"]);

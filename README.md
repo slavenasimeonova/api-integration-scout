@@ -30,6 +30,8 @@ A real run against [IPinfo's developer docs](https://ipinfo.io/developers) (5-pa
 
 The same run marked pagination, webhooks and error format as **Not found in docs** rather than guessing. It also flagged risks a reviewer would raise, for example "Token exposure. The token is commonly passed as a query parameter, which can leak into logs."
 
+**Tested end-to-end in Postman.** I imported the generated collection and environment, set my IPinfo token in `apiKey`, and `GET /lite/me` returned 200 with correct data.
+
 Full output, including the analysis, the Postman collection and the sequence diagram: [`examples/ipinfo/`](examples/ipinfo/).
 
 ## Setup (Windows, Command Prompt)
@@ -77,7 +79,7 @@ Saved to `outputs/<api-name>/`:
 | --- | --- |
 | `analysis.json` | Full structured result (schema: `Analysis` in `src/core/schema.ts`) |
 | `analysis.md` | Human-readable integration summary |
-| `postman_collection.json` | Postman Collection v2.1 using `{{baseUrl}}` and `{{apiKey}}`. Validated against the official schema before saving. Collection auth is the primary documented method; every other documented method (e.g. `?token={{apiKey}}`, HTTP Basic) gets a sample request in the **Auth alternatives** folder |
+| `postman_collection.json` | Postman Collection v2.1 using `{{baseUrl}}` and `{{apiKey}}`. Validated against the official schema before saving. Path variables are prefilled only with values from the docs' own example URLs (e.g. `ip` = `8.8.8.8` from IPinfo's `curl` examples). A request body is set only when the docs show an example body, verified against the page; otherwise the request has no body and its description lists the documented body fields. Collection auth is the primary documented method; every other documented method (e.g. `?token={{apiKey}}`, HTTP Basic) gets a sample request in the **Auth alternatives** folder |
 | `postman_environment.json` | Environment template: public `baseUrl` prefilled when known, `apiKey` empty |
 | `sequence.mmd` | Mermaid sequence diagram of the main integration flow |
 

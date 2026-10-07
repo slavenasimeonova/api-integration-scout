@@ -56,7 +56,15 @@ export function verifyAnalysis(output: AgentOutput, pages: ReadonlyMap<string, S
   );
   result.endpoints = result.endpoints.map((ep, i) => {
     const label = ep.value ? `${ep.value.method} ${ep.value.path}` : `#${i + 1}`;
-    return check(`endpoints[${i}] ${label}`, ep);
+    const checked = check(`endpoints[${i}] ${label}`, ep);
+    // An example body is used as-is in Postman, so it must appear on a cited page.
+    const body = checked.value?.exampleBody;
+    if (checked.value && body !== undefined && !exampleOnCitedPage(body, ep.sources, pages)) {
+      const { exampleBody: _dropped, ...value } = checked.value;
+      downgrades.push({ field: `endpoints[${i}] ${label} example body`, reason: "example body not found on the cited page" });
+      return { ...checked, value };
+    }
+    return checked;
   });
 
   return { output: result, downgrades };
@@ -101,6 +109,13 @@ function verifyFinding<T>(
     },
     downgradeReason: reason,
   };
+}
+
+function exampleOnCitedPage(example: string, sources: Source[], pages: ReadonlyMap<string, StoredPage>): boolean {
+  return sources.some((s) => {
+    const page = pages.get(normalizeUrl(s.url, s.url) ?? s.url);
+    return page !== undefined && quoteAppearsIn(example, page.text);
+  });
 }
 
 function checkSource(

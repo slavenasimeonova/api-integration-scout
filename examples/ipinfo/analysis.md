@@ -59,18 +59,7 @@ IPinfo is a REST API for IP intelligence: geolocation, ASN, anonymity/hosting/mo
 
 Other methods the docs state. Each has a sample request in the Postman "Auth alternatives" folder.
 
-#### 1. api_key in query (token)
-
-- Type: api_key
-- Location: query
-- Parameter: `token`
-- Token as a query parameter
-
-**Status:** Documented
-> "A token query parameter (?token=$TOKEN)"
-> — [https://ipinfo.io/developers](https://ipinfo.io/developers)
-
-#### 2. basic in header (Authorization)
+#### 1. basic in header (Authorization)
 
 - Type: basic
 - Location: header
@@ -81,15 +70,26 @@ Other methods the docs state. Each has a sample request in the Postman "Auth alt
 > "HTTP Basic Authentication (using the token as the username, e.g. curl -u $TOKEN:)"
 > — [https://ipinfo.io/developers](https://ipinfo.io/developers)
 
+#### 2. api_key in query (token)
+
+- Type: api_key
+- Location: query
+- Parameter: `token`
+- Token as a query parameter
+
+**Status:** Documented
+> "A token query parameter (?token=$TOKEN)"
+> — [https://ipinfo.io/developers](https://ipinfo.io/developers)
+
 ### Endpoints
 
 | Method | Path | Purpose | Key params | Status | Source |
 | --- | --- | --- | --- | --- | --- |
-| GET | `/lite/{ip}` | Free-tier lookup returning country, continent and ASN. {ip} can be 'me' for the caller's IP. An optional /{field} suffix returns a single field. | `ip` (path, required), `token` (query) | Documented | [/developers](https://ipinfo.io/developers) |
-| GET | `/lookup/{ip}` | Paid Core/Plus/Max lookup with geolocation, ASN and network flags. {ip} can be 'me'. | `ip` (path, required), `token` (query) | Documented | [/developers/core-api](https://ipinfo.io/developers/core-api) |
-| POST | `/batch` | Batch up to 1,000 lookups or URL patterns (e.g. lite/1.1.1.1, resproxy/IP, AS number) in one request. The body is a JSON array, a newline-separated list or a space-separated list. | `body` (body, required), `token` (query) | Documented | [/developers/batch-enrichment-api](https://ipinfo.io/developers/batch-enrichment-api) |
+| GET | `/lite/{ip}` | Free-tier lookup returning country, continent and ASN. {ip} can be 'me' for the caller's IP. An optional /{field} suffix returns a single field. | `ip` (path, required) | Documented | [/developers](https://ipinfo.io/developers) |
+| GET | `/lookup/{ip}` | Paid Core/Plus/Max lookup with geolocation, ASN and network flags. {ip} can be 'me'. | `ip` (path, required) | Documented | [/developers/core-api](https://ipinfo.io/developers/core-api) |
+| POST | `/batch` | Batch up to 1,000 lookups or URL patterns (e.g. lite/1.1.1.1, resproxy/IP, AS number) in one request. The body is a JSON array, a newline-separated list or a space-separated list. | `body` (body, required) | Documented | [/developers/batch-enrichment-api](https://ipinfo.io/developers/batch-enrichment-api) |
 | POST | `/batch/lite` | Batch lookup for free-tier tokens (Lite data) | `body` (body, required) | Documented | [/developers/batch-enrichment-api](https://ipinfo.io/developers/batch-enrichment-api) |
-| GET | `https://ipinfo.io/{ip}/json` (host from the docs' example URL) | Legacy schema lookup on the host ipinfo.io, not api.ipinfo.io | `ip` (path, required) | Documented | [/developers/core-api](https://ipinfo.io/developers/core-api) |
+| GET | `/{ip}/json` | Legacy schema lookup on the host ipinfo.io, not api.ipinfo.io | `ip` (path, required) | Documented | [/developers/core-api](https://ipinfo.io/developers/core-api) |
 
 ### Pagination
 
@@ -139,7 +139,6 @@ _Reasoning:_ The docs show two parallel API generations by host and schema, with
 
 - Page truncated: https://ipinfo.io/developers/batch-enrichment-api (15350 chars, first 12000 sent to the model); findings from this page may be incomplete
 - Page truncated: https://ipinfo.io/developers/core-api (12095 chars, first 12000 sent to the model); findings from this page may be incomplete
-- Endpoint GET /{ip}/json: host corrected to https://ipinfo.io/{ip}/json from the docs' example URL ("curl https://ipinfo.io/8.8.8.8/json?token=$TOKEN")
 
 ## Run
 

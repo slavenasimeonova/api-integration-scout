@@ -71,7 +71,10 @@ describe("Postman collection", () => {
     expect(byId.url.raw).toBe("{{baseUrl}}/locations/:id");
     expect(byId.url.variable).toEqual([{ key: "id", value: "", description: "Location id" }]);
     expect(requests[0]!.request.url.raw).toBe("{{baseUrl}}/forecast?city=");
-    expect(requests[3]!.request.body?.raw).toContain('"callback_url": "<callback_url>"');
+    // No example body in the analysis: no made-up body, and a note listing the documented fields.
+    expect(requests[3]!.request.body).toBeUndefined();
+    expect(requests[3]!.request.description).toContain("Body: not set.");
+    expect(requests[3]!.request.description).toContain("- callback_url (required): Webhook URL");
   });
 
   it("keeps every documented auth method: primary as collection auth, others as sample requests", () => {

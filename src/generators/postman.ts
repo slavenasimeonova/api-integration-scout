@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { credentialParamKeys } from "../core/auth.js";
+import { pathVariableExamples } from "../core/hosts.js";
 import type { Analysis, Auth } from "../core/schema.js";
 import {
   STATUS_LABEL,
@@ -159,16 +160,34 @@ function buildItem(ep: UsableEndpoint, target: EndpointTarget, credentialParams:
   const query = keyParams
     .filter((p) => p.in === "query")
     .map((p) => ({ key: p.name, value: "", description: p.description, ...(p.required ? {} : { disabled: true }) }));
-  const pathVars = keyParams.filter((p) => p.in === "path").map((p) => ({ key: p.name, value: "", description: p.description }));
+  // Path variables are prefilled only with values from the docs' own example URLs (verified quotes).
+  const examples = pathVariableExamples(ep);
+  const pathVars = keyParams
+    .filter((p) => p.in === "path")
+    .map((p) => ({
+      key: p.name,
+      value: examples[p.name] ?? "",
+      description: examples[p.name] ? `${p.description} (example value from the docs)` : p.description,
+    }));
   const headerParams = keyParams.filter((p) => p.in === "header").map((p) => ({ key: p.name, value: "", description: p.description }));
   const bodyParams = keyParams.filter((p) => p.in === "body");
 
   const queryString = query.filter((q) => !q.disabled).map((q) => `${q.key}=`).join("&");
   const raw = `${hostPrefix}${postmanPath}${queryString ? `?${queryString}` : ""}`;
 
+  // A body is set only when the docs show one (verified); a made-up body would look ready but fail.
+  const exampleBody = BODY_METHODS.has(method) ? ep.value.exampleBody : undefined;
+  const isJson = exampleBody !== undefined && parsesAsJson(exampleBody);
   const header = [{ key: "Accept", value: "application/json" }, ...headerParams];
-  const hasBody = BODY_METHODS.has(method);
-  if (hasBody) header.push({ key: "Content-Type", value: "application/json" });
+  if (isJson) header.push({ key: "Content-Type", value: "application/json" });
+  const bodyNote = !BODY_METHODS.has(method)
+    ? []
+    : exampleBody !== undefined
+      ? ["Body: example copied from the docs (verified against the cited page)."]
+      : [
+          "Body: not set. The pages read show no example request body, so none was generated; check the docs before sending.",
+          ...bodyParams.map((p) => `- ${p.name}${p.required ? " (required)" : ""}: ${p.description}`),
+        ];
 
   const host = ep.hostCheck;
   const description = [
@@ -185,6 +204,7 @@ function buildItem(ep: UsableEndpoint, target: EndpointTarget, credentialParams:
     ...(target.kind === "absolute" ? [`Note: this endpoint uses ${target.origin}, not {{baseUrl}}.`] : []),
     ...(host?.status === "corrected" ? [`Host taken from the docs' example URL: "${host.evidence}"`] : []),
     ...(ep.reasoning ? [`Reasoning: ${ep.reasoning}`] : []),
+    ...(bodyNote.length ? ["", ...bodyNote] : []),
     ...ep.sources.map((s) => `Source: ${s.url}`),
   ].join("\n");
 
@@ -202,18 +222,21 @@ function buildItem(ep: UsableEndpoint, target: EndpointTarget, credentialParams:
         ...(query.length ? { query } : {}),
         ...(pathVars.length ? { variable: pathVars } : {}),
       },
-      ...(hasBody
-        ? {
-            body: {
-              mode: "raw",
-              raw: JSON.stringify(Object.fromEntries(bodyParams.map((p) => [p.name, `<${p.name}>`])), null, 2),
-              options: { raw: { language: "json" } },
-            },
-          }
+      ...(exampleBody !== undefined
+        ? { body: { mode: "raw", raw: exampleBody, options: { raw: { language: isJson ? "json" : "text" } } } }
         : {}),
       description,
     },
   };
+}
+
+function parsesAsJson(text: string): boolean {
+  try {
+    JSON.parse(text);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /** Postman auth block for a method, or null if Postman can't express it (none/other). */

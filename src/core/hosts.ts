@@ -95,3 +95,46 @@ function matchUrl(raw: string, template: RegExp, quote: string): Match | null {
   if (!m) return null;
   return { origin: url.origin.toLowerCase(), prefix: m[1] ?? "", quote };
 }
+
+/** Values that are placeholders in the docs, not usable examples: {ip}, <id>, :id, $IP, YOUR_ID. */
+const PLACEHOLDER = /^[{<:$]|your|^x+$|\.\.\./i;
+
+/**
+ * Example values for an endpoint's path variables, read from the full URLs in
+ * its quotes (only verified quotes remain after verification). For example,
+ * GET /lite/{ip} with the quote "curl https://api.ipinfo.io/lite/8.8.8.8?token=$TOKEN"
+ * gives { ip: "8.8.8.8" }. The first usable value per variable wins.
+ */
+export function pathVariableExamples(ep: Finding<Endpoint>): Record<string, string> {
+  if (!ep.value) return {};
+  const templatePath = ep.value.path.trim().replace(/^https?:\/\/[^/]+/i, "").split("?")[0]!;
+  const segments = templatePath.split("/").filter(Boolean);
+  const names = segments.flatMap((s) => (/^\{[^}]+\}$/.test(s) ? [s.slice(1, -1)] : []));
+  if (names.length === 0) return {};
+  const body = segments.map((s) => (/^\{[^}]+\}$/.test(s) ? "([^/]+)" : s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))).join("/");
+  const template = new RegExp(`/${body}/?$`, "i");
+
+  const examples: Record<string, string> = {};
+  for (const source of ep.sources) {
+    for (const raw of source.quote?.match(URL_IN_TEXT) ?? []) {
+      let pathname: string;
+      try {
+        pathname = new URL(raw.replace(/[.,;:!?]+$/, "")).pathname;
+      } catch {
+        continue;
+      }
+      const m = template.exec(pathname);
+      if (!m) continue;
+      names.forEach((name, i) => {
+        let value = m[i + 1] ?? "";
+        try {
+          value = decodeURIComponent(value);
+        } catch {
+          // Malformed escape: keep the raw text.
+        }
+        if (!(name in examples) && value && !PLACEHOLDER.test(value)) examples[name] = value;
+      });
+    }
+  }
+  return examples;
+}
