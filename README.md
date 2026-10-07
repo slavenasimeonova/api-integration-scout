@@ -1,5 +1,11 @@
 # API Integration Scout
 
+## Why I built this
+
+I'm an integration architect with 7 years in enterprise telecom, and the slowest part of every integration is reading vendor docs and working out what's actually documented and what's assumed. This agent does that first pass, and it never presents a guess as fact.
+
+## What it does
+
 An AI agent that reads public API documentation and writes an **integration analysis**: base URL, authentication, main endpoints, pagination, rate limits, webhooks, error format, versioning, plus risks and open questions. It also generates a ready-to-import **Postman collection**.
 
 It is built for APIs without an OpenAPI spec. Every finding is labelled:
@@ -11,6 +17,20 @@ It is built for APIs without an OpenAPI spec. Every finding is labelled:
 | **Not found in docs** | The pages read don't cover it. The agent doesn't guess. |
 
 If the agent marks something as documented but its quote can't be found on the cited page, the finding is downgraded to *Inferred* and listed as a risk.
+
+## Real-world example: IPinfo
+
+A real run against [IPinfo's developer docs](https://ipinfo.io/developers) (5-page limit, about 27 seconds, about $0.12). IPinfo accepts the same token three ways, and different client systems need different ones. The agent found all three, and each quote below was checked automatically against the page it came from:
+
+| Auth method | Verified quote from the docs | In the Postman collection |
+| --- | --- | --- |
+| Bearer token (primary) | "A Bearer token in the Authorization header (Authorization: Bearer $TOKEN)" | Collection-level auth |
+| Token in query | "A token query parameter (?token=$TOKEN)" | *Auth alternatives* → `?token={{apiKey}}` |
+| HTTP Basic | "HTTP Basic Authentication (using the token as the username, e.g. curl -u $TOKEN:)" | *Auth alternatives* → Basic, `{{apiKey}}` as the username |
+
+The same run marked pagination, webhooks and error format as **Not found in docs** rather than guessing. It also flagged risks a reviewer would raise, for example "Token exposure. The token is commonly passed as a query parameter, which can leak into logs."
+
+Full output, including the analysis, the Postman collection and the sequence diagram: [`examples/ipinfo/`](examples/ipinfo/).
 
 ## Setup (Windows, Command Prompt)
 
@@ -65,9 +85,9 @@ Every run, successful or failed, is appended to `outputs/runs.jsonl` with its to
 
 To use the collection in Postman: *Import* both JSON files, select the environment, and paste your API key into `apiKey`.
 
-## Example output
+## Verification at work (offline fixture)
 
-This excerpt was generated from the offline test fixture: a small fake "Acme Weather API" docs site in `tests/fixtures/`. One endpoint quote in the fixture is deliberately wrong, to show verification at work.
+This excerpt comes from the offline test fixture: a small fake "Acme Weather API" docs site in `tests/fixtures/`. The scripted agent output deliberately includes a wrong endpoint quote and a made-up auth method, to show what verification does with them.
 
 Progress in the CLI's format (illustrative: the events match the test run, the timings are made up):
 
@@ -88,7 +108,7 @@ Progress in the CLI's format (illustrative: the events match the test run, the t
 | Area | Finding | Status | Source |
 | --- | --- | --- | --- |
 | Base URL | https://api.acmeweather.example/v2 | Documented | [/](https://docs.acmeweather.example/) |
-| Authentication | api_key: API key in the X-Api-Key header | Documented | [/](https://docs.acmeweather.example/) |
+| Authentication | api_key: API key in the X-Api-Key header (+2 documented alternatives) | Documented | [/](https://docs.acmeweather.example/) |
 | Pagination | cursor: Pass next_cursor as cursor | Documented | [/endpoints](https://docs.acmeweather.example/endpoints) |
 | Rate limits | 60 requests per minute per key | Documented | [/rate-limits](https://docs.acmeweather.example/rate-limits) |
 | Versioning | url_path (v2) | Inferred | [/](https://docs.acmeweather.example/) |
@@ -97,6 +117,7 @@ Progress in the CLI's format (illustrative: the events match the test run, the t
 ## Risks
 
 - **HIGH**: Webhook signature verification required. Verify X-Acme-Signature before trusting payloads.
+- **LOW**: Unverified claim: authAlternatives[2] bearer in header (Authorization). The agent marked this as documented, but quote not found on https://docs.acmeweather.example/. Treat it as inferred and confirm with the provider. _(verification check)_
 - **LOW**: Unverified claim: endpoints[3] POST /alerts. The agent marked this as documented, but quote not found on https://docs.acmeweather.example/endpoints. Treat it as inferred and confirm with the provider. _(verification check)_
 ```
 
@@ -203,3 +224,7 @@ The tests use saved HTML fixtures and a scripted stand-in for the Agent SDK (`te
 - Only up to `SCOUT_MAX_PAGES` pages are read, and page text sent to the model is capped at 12,000 characters. Large references may be only partly covered. Both cases are reported: each truncated page gets a `page_truncated` event and a warning ("findings from this page may be incomplete"), and hitting the page limit adds a warning.
 - The same-site rule allows the starting host and its parent/child subdomains (`docs.stripe.com` and `stripe.com`). Docs hosted on a different domain aren't followed.
 - Costs are the SDK's estimates, not a billing statement.
+
+## Author
+
+Slavena Simeonova · [linkedin.com/in/slavenasimeonova](https://www.linkedin.com/in/slavenasimeonova)
