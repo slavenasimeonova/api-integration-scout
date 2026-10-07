@@ -37,17 +37,18 @@ export function buildPostmanCollection(analysis: Analysis, id: string = randomUU
   // Sample-able methods (incl. cookie API keys, which Postman's apikey auth can't express).
   const supported = methods.filter((m) => m === primary || ["api_key", "bearer", "basic", "oauth2"].includes(m.value.type));
   const credentialParams = credentialParamKeys(methods.map((m) => m.value));
+  const apiJson = apiDocumentsJsonResponses(analysis);
 
   const folders = new Map<string, ReturnType<typeof buildItem>[]>();
   for (const ep of endpoints) {
     const target = endpointTarget(ep.value.path, baseUrl);
     const folder =
       target.kind === "absolute" ? target.host : (target.path.split("/").find((s) => s && !s.startsWith("{")) ?? "root");
-    folders.set(folder, [...(folders.get(folder) ?? []), buildItem(ep, target, credentialParams)]);
+    folders.set(folder, [...(folders.get(folder) ?? []), buildItem(ep, target, credentialParams, apiJson)]);
   }
 
   const items = [...folders.entries()].map(([name, item]) => ({ name, item }));
-  const alternatives = supported.filter((m) => m !== primary).map((m) => buildAuthAlternative(m, endpoints, baseUrl, credentialParams));
+  const alternatives = supported.filter((m) => m !== primary).map((m) => buildAuthAlternative(m, endpoints, baseUrl, credentialParams, apiJson));
   if (alternatives.length) {
     items.push({ name: AUTH_ALTERNATIVES_FOLDER, item: alternatives });
   }
@@ -76,6 +77,7 @@ export function buildPostmanCollection(analysis: Analysis, id: string = randomUU
     variable: [
       { key: "baseUrl", value: baseUrl ?? "", type: "string" },
       { key: "apiKey", value: "", type: "string" },
+      { key: "maxResponseMs", value: String(DEFAULT_MAX_RESPONSE_MS), type: "string" },
     ],
   };
 }
@@ -107,15 +109,17 @@ function buildAuthAlternative(
   endpoints: UsableEndpoint[],
   baseUrl: string | null,
   credentialParams: Set<string>,
+  apiJson: boolean,
 ) {
   const sample =
     endpoints.find((e) => e.value.method === "GET" && endpointTarget(e.value.path, baseUrl).kind === "relative") ?? endpoints[0];
   const base = sample
-    ? buildItem(sample, endpointTarget(sample.value.path, baseUrl), credentialParams)
+    ? buildItem(sample, endpointTarget(sample.value.path, baseUrl), credentialParams, apiJson)
     : buildItem(
         { status: "documented", value: { method: "GET", path: "/", purpose: "", keyParams: [] }, sources: [] },
         { kind: "relative", path: "/" },
         credentialParams,
+        apiJson,
       );
   const request: Record<string, unknown> & typeof base.request = { ...base.request, header: [...base.request.header] };
   const { type, location, parameterName } = method.value;
@@ -147,10 +151,10 @@ function buildAuthAlternative(
     ...method.sources.map((s) => (s.quote ? `Source: ${s.url}\n"${s.quote}"` : `Source: ${s.url}`)),
   ].join("\n");
 
-  return { name: `${authName(method.value)}: ${sample ? `${sample.value.method} ${sample.value.path}` : "GET /"}`, request };
+  return { name: `${authName(method.value)}: ${sample ? `${sample.value.method} ${sample.value.path}` : "GET /"}`, request, event: base.event };
 }
 
-function buildItem(ep: UsableEndpoint, target: EndpointTarget, credentialParams: Set<string>) {
+function buildItem(ep: UsableEndpoint, target: EndpointTarget, credentialParams: Set<string>, apiJson: boolean) {
   const { method, path, purpose } = ep.value;
   // Credential params (e.g. ?token=) are supplied by the auth setup, not left empty on every request.
   const keyParams = ep.value.keyParams.filter((p) => !credentialParams.has(`${p.in}:${p.name.toLowerCase()}`));
@@ -210,6 +214,7 @@ function buildItem(ep: UsableEndpoint, target: EndpointTarget, credentialParams:
 
   return {
     name: `${host?.status === "ambiguous" ? `${CHECK_HOST_FLAG} ` : ""}${method} ${path}${ep.status === "inferred" ? " (inferred)" : ""}`,
+    event: [testEvent(apiJson || endpointDocumentsJson(ep))],
     request: {
       method,
       header,
@@ -228,6 +233,57 @@ function buildItem(ep: UsableEndpoint, target: EndpointTarget, credentialParams:
       description,
     },
   };
+}
+
+export const DEFAULT_MAX_RESPONSE_MS = 5000;
+
+const JSON_WORD = /\bjson\b/i;
+/** "returns JSON", "responses are JSON", "JSON response": JSON as the response format. */
+const JSON_RESPONSES = /\b(respon\w*|returns?|returned)\b[^.]{0,80}\bjson\b|\bjson\b[^.]{0,40}\brespon\w*/i;
+
+/**
+ * API-wide evidence that successful responses are JSON: a verified quote of a
+ * documented finding that says so. Error-format quotes don't count (they
+ * describe error bodies only).
+ */
+export function apiDocumentsJsonResponses(analysis: Analysis): boolean {
+  const findings = [analysis.baseUrl, analysis.auth, ...analysis.authAlternatives, analysis.pagination, analysis.rateLimits, analysis.versioning];
+  return findings.some((f) => f.status === "documented" && f.sources.some((s) => s.quote && JSON_RESPONSES.test(prose(s.quote))));
+}
+
+/** Quote text without URLs: "json" in https://x/8.8.8.8/json says nothing about the format. */
+const prose = (quote: string) => quote.replace(/https?:\/\/\S+/gi, " ");
+
+/** Endpoint-level evidence: a path ending in .json or /json, or a verified quote of the endpoint that mentions JSON. */
+export function endpointDocumentsJson(ep: UsableEndpoint): boolean {
+  if (/[./]json$/i.test(ep.value.path.split("?")[0]!.trim())) return true;
+  return ep.status === "documented" && ep.sources.some((s) => s.quote && JSON_WORD.test(prose(s.quote)));
+}
+
+/**
+ * Fixed test script for every request. Nothing from the docs is inserted
+ * (model output never becomes code), and no response fields are assumed.
+ */
+function testEvent(expectJson: boolean) {
+  const exec = [
+    'pm.test("Status is 2xx", function () {',
+    '  pm.expect(pm.response.code, "HTTP status").to.be.within(200, 299);',
+    "});",
+    `var maxResponseMs = Number(pm.variables.get("maxResponseMs")) || ${DEFAULT_MAX_RESPONSE_MS};`,
+    'pm.test("Response time is under " + maxResponseMs + " ms", function () {',
+    "  pm.expect(pm.response.responseTime).to.be.below(maxResponseMs);",
+    "});",
+  ];
+  if (expectJson) {
+    exec.push(
+      "// The docs show JSON responses for this request, so the body must be JSON.",
+      'pm.test("Response is JSON", function () {',
+      '  pm.expect(pm.response.headers.get("Content-Type") || "", "Content-Type").to.include("json");',
+      "  pm.response.json();",
+      "});",
+    );
+  }
+  return { listen: "test", script: { type: "text/javascript", exec } };
 }
 
 function parsesAsJson(text: string): boolean {

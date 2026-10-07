@@ -9,6 +9,7 @@ import { ACME_ROOT, createFixtureFetcher } from "./helpers/fixtures.js";
 import { ACME_OUTPUT, fakeRunner } from "./helpers/fake-runner.js";
 
 const D = "https://docs.acmeweather.example";
+const NOT_FOUND = { status: "not_found" as const, value: null, sources: [] };
 const BODY = '{"location_id": "loc_123", "callback_url": "https://example.com/hooks/acme"}';
 
 function withEndpoints(endpoints: AgentOutput["endpoints"]): AgentOutput {
@@ -120,6 +121,11 @@ describe("path variable examples", () => {
       baseUrl: { status: "documented" as const, value: "https://api.ipinfo.io", sources: [] },
       auth: { status: "not_found" as const, value: null, sources: [] },
       authAlternatives: [],
+      pagination: NOT_FOUND,
+      rateLimits: NOT_FOUND,
+      webhooks: NOT_FOUND,
+      errorFormat: NOT_FOUND,
+      versioning: NOT_FOUND,
       endpoints: [ep("/lite/{ip}", "curl https://api.ipinfo.io/lite/8.8.8.8?token=$TOKEN")],
     };
     const req = requests(analysis)[0]!.request;

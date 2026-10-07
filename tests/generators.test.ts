@@ -51,6 +51,7 @@ describe("Postman collection", () => {
     expect(c.variable).toEqual([
       { key: "baseUrl", value: "https://api.acmeweather.example/v2", type: "string" },
       { key: "apiKey", value: "", type: "string" },
+      { key: "maxResponseMs", value: "5000", type: "string" },
     ]);
     expect(c.auth).toEqual({
       type: "apikey",
