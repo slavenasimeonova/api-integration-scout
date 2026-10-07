@@ -12,6 +12,7 @@ API Integration Scout is a TypeScript agent built on the Claude Agent SDK. It re
 npm test                 :: Vitest, fully offline (fixtures + scripted fake SDK runner)
 npm run typecheck        :: tsc --noEmit (TypeScript 7)
 npm run scout -- <url> [--max-pages 5] [--model id] [--out dir] [--json]
+npm run postman:run -- <collection.json> [--env env.json] [--allow-writes]   :: Newman; GET only by default; token from TARGET_API_TOKEN
 ```
 
 - `.env` is loaded by Node's `--env-file-if-exists` (no dotenv). It holds `ANTHROPIC_API_KEY`, which must be a **workspace-scoped** key (see Pitfalls).
@@ -77,6 +78,9 @@ examples/ipinfo/ Real run output (regenerated offline with the current host chec
 - Auth rules live in code (`src/core/auth.ts`), not in the prompt. The primary method is the best-ranked documented one: header > Basic > query > cookie. Credential params are removed from endpoints. Added after a real IPinfo run picked the query token as primary while its own risks said to prefer the header.
 - Postman requests never get made-up values. Path variables are prefilled only from the docs' example URLs in verified quotes (`pathVariableExamples` in `hosts.ts`). A body is set only from `exampleBody`, which must appear on a cited page (`verify.ts`); otherwise there is no body, and the description lists the documented fields. Added after IPinfo's POST /batch got `{"body": "<body>"}`.
 - The IPinfo collection was tested end-to-end in Postman by the user: `GET /lite/me` returned 200 (2026-10-07).
+- Generated Postman tests: status 2xx, response time under `{{maxResponseMs}}`, and JSON only with documented evidence (`apiDocumentsJsonResponses` / `endpointDocumentsJson` in `postman.ts`). They never check response fields, and no docs text goes into scripts.
+- Newman runner (`src/postman/`, `npm run postman:run`): GET only unless `--allow-writes`; skips requests with empty required values or `[CHECK HOST]`. The token comes from `TARGET_API_TOKEN` (not `POSTMAN_API_KEY`, which means a key for Postman itself), is passed in memory, and is scrubbed from the report. The report is written only if it doesn't contain the token. newman pulls in transitive packages with npm audit findings; it's a local dev tool only, so they were left as is.
+- The user works in PowerShell, where npm must be called as `npm.cmd`. Docs show PowerShell and Command Prompt commands.
 - Pages are numbered in the order their fetch finishes, so parallel fetches don't show as 1/5, 3/5, 2/5.
 - UI numbers come from one place (`web/lib/figures.ts`). When a run finishes, the meters switch to the analysis figures. The token meter counts budgeted tokens (input + cache write + output, excluding cache reads).
 - UI development without cost: `npm run worker:fake` + `npm run dev` in `web/`. Live runs start only on a click, never on page load, so a refresh can't spend money.

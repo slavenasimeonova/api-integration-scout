@@ -87,6 +87,43 @@ Every run, successful or failed, is appended to `outputs/runs.jsonl` with its to
 
 To use the collection in Postman: *Import* both JSON files, select the environment, and paste your API key into `apiKey`.
 
+**Tests in every request.** Each generated request carries a small Postman test script:
+
+| Test | When |
+| --- | --- |
+| Status is 2xx | Always |
+| Response time under `{{maxResponseMs}}` ms | Always (collection variable, default 5000) |
+| Response is JSON (`Content-Type` contains `json` and the body parses) | Only with documented evidence: a verified quote of the endpoint mentions JSON, a documented finding says responses are JSON, or the path ends in `.json` or `/json`. Error-format quotes and URLs in quotes don't count. |
+
+The tests never check response fields, so nothing the docs don't state is assumed. The scripts are fixed text: nothing from the docs or the model is inserted into them.
+
+### Run the collection with Newman
+
+`npm run postman:run` sends a generated collection with [Newman](https://github.com/postmanlabs/newman) and writes a report. It is safe by default:
+
+- Only **GET** requests are sent. POST, PUT, PATCH and DELETE are skipped unless you pass `--allow-writes`.
+- Also skipped, with the reason in the report: requests with an empty path variable or required query value, and requests flagged `[CHECK HOST]`.
+- Requests go one at a time, 500 ms apart (`--delay`), with a 15-second timeout (`--timeout`).
+- The target API's token comes from the `TARGET_API_TOKEN` environment variable (or `.env`). It is set as `{{apiKey}}` in memory only, never written to a file, and never printed.
+
+PowerShell (npm is called as `npm.cmd`):
+
+```powershell
+$env:TARGET_API_TOKEN="your-ipinfo-token"
+npm.cmd run postman:run -- examples\ipinfo\postman_collection.json --env examples\ipinfo\postman_environment.json
+# also send POST/PUT/PATCH/DELETE:
+npm.cmd run postman:run -- examples\ipinfo\postman_collection.json --env examples\ipinfo\postman_environment.json --allow-writes
+```
+
+Command Prompt:
+
+```bat
+set TARGET_API_TOKEN=your-ipinfo-token
+npm run postman:run -- examples\ipinfo\postman_collection.json --env examples\ipinfo\postman_environment.json
+```
+
+The report is saved as Markdown and JSON in `outputs/postman-runs/`. It covers each request (name, status, time, test results) and each skipped request with its reason. It records no headers, bodies, full URLs or credentials, and a run that would write the token into a report fails instead. The exit code is 1 if any request failed, so it also works in CI. A run sends real requests to the target API with your token and counts against that API's quota, but makes no Claude API calls.
+
 ## Web UI (in progress)
 
 A Next.js app in `web/` that wraps the same core. It has three parts:
