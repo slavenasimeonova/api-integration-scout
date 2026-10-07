@@ -1,0 +1,13 @@
+.downloads {
+  max-width: 26rem;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.downloads p {
+  margin: 0.5rem 0 0;
+}

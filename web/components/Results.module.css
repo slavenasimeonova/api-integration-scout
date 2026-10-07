@@ -1,0 +1,152 @@
+.results {
+  margin-top: 2rem;
+}
+
+.header {
+  display: flex;
+  gap: 1.5rem;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.header h1 {
+  font-size: 1.8rem;
+  margin-bottom: 0.3rem;
+}
+
+.summary {
+  max-width: 60ch;
+  margin: 0 0 0.4rem;
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.4rem;
+  margin-top: 1.2rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.flush {
+  padding: 0;
+}
+
+.pad {
+  padding: 1rem 1.2rem;
+  margin: 0;
+}
+
+.area {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.request code {
+  white-space: nowrap;
+}
+
+.flag {
+  margin-top: 0.25rem;
+  font-size: 0.8rem;
+  color: var(--warn);
+}
+
+.primary {
+  margin-left: 0.4rem;
+  font-size: 0.72rem;
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
+
+.badge {
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.badge[data-status="documented"] {
+  color: var(--documented);
+  background: var(--documented-bg);
+}
+
+.badge[data-status="inferred"] {
+  color: var(--inferred);
+  background: var(--inferred-bg);
+}
+
+.badge[data-status="not_found"] {
+  color: var(--missing);
+  background: var(--missing-bg);
+}
+
+.evidence {
+  min-width: 14rem;
+  max-width: 28rem;
+}
+
+.evidence[open] summary {
+  margin-bottom: 0.3rem;
+}
+
+.columns {
+  display: grid;
+  grid-template-columns: 3fr 2fr;
+  gap: 2rem;
+}
+
+.risks {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.6rem;
+}
+
+.risks p {
+  margin: 0.3rem 0 0;
+}
+
+.severity {
+  display: inline-block;
+  min-width: 4.2rem;
+  margin-right: 0.5rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.severity[data-severity="high"] {
+  color: var(--error);
+}
+
+.severity[data-severity="medium"] {
+  color: var(--warn);
+}
+
+.severity[data-severity="low"] {
+  color: var(--muted);
+}
+
+.questions {
+  padding-left: 1.2rem;
+  margin: 0;
+}
+
+.questions li + li {
+  margin-top: 0.4rem;
+}
+
+@media (max-width: 760px) {
+  .columns {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+}

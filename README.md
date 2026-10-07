@@ -85,6 +85,38 @@ Every run, successful or failed, is appended to `outputs/runs.jsonl` with its to
 
 To use the collection in Postman: *Import* both JSON files, select the environment, and paste your API key into `apiKey`.
 
+## Web UI (in progress)
+
+A Next.js app in `web/` that wraps the same core. It has three parts:
+
+- **Input:** paste a docs URL, or open one of three saved examples.
+- **Live run:** a timeline of the agent's progress events, with page, token, time and cost meters.
+- **Results:** Documented / Inferred / Not found badges with source quotes, the auth methods, endpoints, risks and open questions, the rendered sequence diagram, and download buttons.
+
+| Part | What it does |
+| --- | --- |
+| `worker/` | Small `node:http` server around `runScout` (core unchanged). `POST /api/run` streams NDJSON: progress events, then the analysis and output files. `GET /api/limits` returns the runs left. |
+| `worker/safe-fetch.ts` | SSRF-safe fetcher passed to `runScout`. Allows only http(s) on default ports. Resolves DNS first and blocks private, loopback, link-local and metadata addresses. Pins the connection to the checked address and re-checks every redirect. |
+| `worker/limits.ts` | Live-run limits: 3 per visitor per day (by salted IP hash), 10 per day overall, $2 per day overall, 2 at a time. Each run reserves the per-run cap ($0.50) up front, then settles at its real cost. |
+| `web/` | Next.js App Router. All pages are static; `/api/*` goes to the worker. |
+| `examples/recordings/` | Three real runs (IPinfo, Pushover, Postmark) with their progress events. `npm run build:examples` turns them into `web/public/examples/*.json`, so the examples replay instantly with no API call. |
+
+Run it locally (two Command Prompt windows):
+
+```bat
+:: 1) the worker: real runs, uses ANTHROPIC_API_KEY from .env
+npm run worker
+:: ...or the offline fake worker (no key, no cost; paste https://docs.acmeweather.example/)
+npm run worker:fake
+
+:: 2) the web app on http://localhost:3000
+cd web
+npm install
+npm run dev
+```
+
+Worker settings (environment variables): `PORT` (8787), `LIMIT_RUNS_PER_VISITOR` (3), `LIMIT_RUNS_PER_DAY` (10), `LIMIT_USD_PER_DAY` (2), `LIMIT_CONCURRENT_RUNS` (2), `WORKER_SECRET` (if set, every `/api` request needs it in `x-scout-secret`), `CLIENT_IP_HEADER` (the header carrying the client IP behind a trusted proxy) and `VISITOR_SALT`. The limit counters are in memory for now. A persistent store is chosen together with the hosting.
+
 ## Verification at work (offline fixture)
 
 This excerpt comes from the offline test fixture: a small fake "Acme Weather API" docs site in `tests/fixtures/`. The scripted agent output deliberately includes a wrong endpoint quote and a made-up auth method, to show what verification does with them.

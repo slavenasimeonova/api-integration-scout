@@ -1,7 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import http from "node:http";
 import { runScout, ScoutError, type AgentRunner, type Fetcher, type ProgressEvent, type ScoutConfig } from "../src/core/index.js";
-import type { RunStats } from "../src/core/schema.js";
+import type { Analysis, RunStats } from "../src/core/schema.js";
 import { buildOutputs } from "../src/generators/index.js";
 import type { RunLimiter } from "./limits.js";
 import { BlockedUrlError, checkUrl } from "./safe-fetch.js";
@@ -13,7 +13,7 @@ import { BlockedUrlError, checkUrl } from "./safe-fetch.js";
 
 export type RunStreamLine =
   | { type: "event"; event: ProgressEvent }
-  | { type: "result"; analysis: unknown; files: Record<string, string>; postmanErrors: string[] }
+  | { type: "result"; analysis: Analysis; slug: string; files: Record<string, string>; postmanErrors: string[] }
   | { type: "error"; reason: string; message: string };
 
 export type WorkerDeps = {
@@ -102,8 +102,8 @@ async function handle(req: http.IncomingMessage, res: http.ServerResponse, deps:
       onEvent: (event) => send({ type: "event", event }),
     });
     run = analysis.run;
-    const { files, postmanValidation } = buildOutputs(analysis);
-    send({ type: "result", analysis, files, postmanErrors: postmanValidation.errors });
+    const { slug, files, postmanValidation } = buildOutputs(analysis);
+    send({ type: "result", analysis, slug, files, postmanErrors: postmanValidation.errors });
   } catch (err) {
     status = "failed";
     if (err instanceof ScoutError) {

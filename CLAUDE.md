@@ -67,7 +67,18 @@ examples/ipinfo/ Real run output (regenerated offline with the current host chec
 - Windows/Command Prompt commands in docs; CLI output stays ASCII.
 - When adding behavior: add a fixture-based test, and confirm it fails without the change.
 
-## Current state (2026-10-07)
+## Phase 2 progress (2026-10-07)
+
+- Steps 1 to 4 are built (worker, safe fetcher, limits, Next.js screens, local wiring): 130 tests passing. Hosting (step 5) is deliberately undecided.
+- Before deploying, propose the simplest hosting for someone with limited DevOps experience (ideally one service, few accounts) and compare it with Vercel + Cloud Run + Upstash. Every web page is static, so one container serving `web/` (exported) plus the worker is an option.
+- Deploy with a dedicated key from the "scout-demo" workspace (monthly spend limit), never the local key.
+- `MemoryStore` limit counters reset on restart. Hosts that scale to zero need a persistent store (e.g. Redis or a volume).
+- Recording runs (2026-10-07, `--max-pages 5`): IPinfo $0.109, Pushover $0.052, Postmark $0.130.
+- UI development without cost: `npm run worker:fake` + `npm run dev` in `web/`. Live runs start only on a click, never on page load, so a refresh can't spend money.
+- `web/` imports only *types* from `src/` and `worker/`. Next's turbopack root is `web/`.
+- Headless Edge screenshots: the layout is at least 518px wide; test phone widths with a 390px iframe.
+
+## Phase 1 state (2026-10-07)
 
 - Phase 1 complete: 74 tests passing, published at github.com/slavenasimeonova/api-integration-scout.
 - Real runs: IPinfo twice (about $0.11 and $0.12). The second run confirmed three verified auth methods, live progress events, correct page numbering and truncation warnings.

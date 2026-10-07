@@ -4,6 +4,7 @@
   "scripts": {
     "scout": "node --env-file-if-exists=.env --import tsx src/cli/index.ts",
     "worker": "node --env-file-if-exists=.env --import tsx worker/main.ts",
+    "worker:fake": "node --import tsx scripts/fake-worker.ts",
     "build:examples": "node --import tsx scripts/build-examples.ts",
     "test": "vitest run",
     "test:watch": "vitest",

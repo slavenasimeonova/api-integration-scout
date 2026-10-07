@@ -1,0 +1,77 @@
+.form p {
+  margin: 0.6rem 0 0;
+}
+
+.label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.inputRow {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.input {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.input:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.examples {
+  margin-top: 1.2rem;
+}
+
+.examples > p {
+  margin: 0 0 0.5rem;
+}
+
+.exampleGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.7rem;
+}
+
+.example {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.example:hover {
+  border-color: var(--accent);
+}
+
+.run {
+  margin-top: 2rem;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.8rem;
+  justify-items: start;
+}
+
+.run > section {
+  width: 100%;
+}
+
+@media (max-width: 640px) {
+  .exampleGrid {
+    grid-template-columns: 1fr;
+  }
+  .inputRow {
+    flex-direction: column;
+  }
+}
