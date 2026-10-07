@@ -27,6 +27,8 @@ export class DocsSession {
   readonly pages = new Map<string, StoredPage>();
   readonly visits: PageVisit[] = [];
   private attempts = 0;
+  /** Pages fetched successfully; numbers pages in the order they finish. */
+  private fetched = 0;
   private readonly attempted = new Set<string>();
 
   constructor(
@@ -61,7 +63,7 @@ export class DocsSession {
     }
 
     // Reserve the slot before awaiting so parallel tool calls can't exceed the limit.
-    const slot = ++this.attempts;
+    this.attempts++;
     this.attempted.add(url);
 
     let response;
@@ -90,12 +92,14 @@ export class DocsSession {
     const lowText = len < ALMOST_EMPTY_CHARS || (len < this.config.minPageTextChars && extracted.looksClientRendered);
     const truncated = len > this.config.maxPageChars;
     this.visits.push({ url, status: "fetched", textLength: len, lowText, truncated });
+    // Numbered on completion: parallel fetches finish out of order, and the UI shows 1, 2, 3.
+    const number = ++this.fetched;
 
     this.emit({
       step: "page_fetched",
-      detail: `Fetched ${extracted.title || url} (${slot}/${this.config.maxPages})`,
+      detail: `Fetched ${extracted.title || url} (${number}/${this.config.maxPages})`,
       url,
-      pageCount: slot,
+      pageCount: number,
       maxPages: this.config.maxPages,
       textLength: extracted.text.length,
     });

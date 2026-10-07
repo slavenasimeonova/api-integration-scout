@@ -24,6 +24,24 @@ describe("DocsSession.fetchPage", () => {
     expect(session.pages.get(ACME_ROOT)?.title).toBe("Acme Weather API — Overview");
   });
 
+  it("numbers pages in the order they finish when fetched in parallel", async () => {
+    const events: ProgressEvent[] = [];
+    const fixtures = createFixtureFetcher();
+    // The first request is the slowest, as with a large page fetched alongside small ones.
+    const delays: Record<string, number> = { "/": 60, "/endpoints": 30, "/rate-limits": 0 };
+    const slow = async (url: string) => {
+      await new Promise((r) => setTimeout(r, delays[new URL(url).pathname] ?? 0));
+      return fixtures(url);
+    };
+    const session = new DocsSession(ACME_ROOT, slow, { ...DEFAULT_CONFIG, maxPages: 5 }, createEmitter((e) => events.push(e)));
+    await Promise.all([session.fetchPage(ACME_ROOT), session.fetchPage("/endpoints"), session.fetchPage("/rate-limits")]);
+
+    const fetched = events.flatMap((e) => (e.step === "page_fetched" ? [e] : []));
+    expect(fetched.map((e) => e.pageCount)).toEqual([1, 2, 3]);
+    expect(fetched.map((e) => new URL(e.url).pathname)).toEqual(["/rate-limits", "/endpoints", "/"]);
+    expect(fetched[0]!.detail).toMatch(/\(1\/5\)$/);
+  });
+
   it("accepts relative paths", async () => {
     const { session, fetcher } = setup();
     await session.fetchPage("/endpoints");

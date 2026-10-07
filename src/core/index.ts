@@ -5,3 +5,4 @@ export type { ProgressEvent, ProgressStep, OnEvent, AgentStep } from "./events.j
 export type { Fetcher, FetchResponse } from "./fetcher.js";
 export type * from "./schema.js";
 export type { AnalysisEndpoint, HostCheck } from "./hosts.js";
+export { normalizeAuth, authRank, credentialParamKeys, primaryChangeDetail, type AuthNormalization } from "./auth.js";

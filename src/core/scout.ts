@@ -6,6 +6,7 @@ import { createHttpFetcher, type Fetcher } from "./fetcher.js";
 import { SYSTEM_PROMPT, buildUserPrompt } from "./prompt.js";
 import { AgentOutput, agentOutputJsonSchema, type Analysis, type Risk, type RunStats } from "./schema.js";
 import { ALLOWED_TOOLS, DocsSession, MCP_SERVER_NAME, createScoutMcpServer } from "./tools.js";
+import { normalizeAuth, primaryChangeDetail } from "./auth.js";
 import { checkEndpointHosts } from "./hosts.js";
 import { authLabel, verifyAnalysis } from "./verify.js";
 
@@ -238,6 +239,14 @@ export async function runScout(docsUrl: string, opts: RunScoutOptions = {}): Pro
     warnings.push(`Auth alternative "${label}" left out: not verifiably stated in the docs (${alt.status})`);
     return false;
   });
+  // Primary auth and credential params follow fixed rules, not the model's choice (auth.ts).
+  const normalized = normalizeAuth({ auth: output.auth, authAlternatives, endpoints });
+  if (normalized.primaryChange) {
+    const { from, to } = normalized.primaryChange;
+    const detail = primaryChangeDetail(normalized.primaryChange);
+    emit({ step: "auth_primary_changed", detail, from, to });
+    warnings.push(detail);
+  }
   if (session.pagesFetched >= config.maxPages) warnings.push(`Page limit of ${config.maxPages} reached; some docs may not have been read`);
 
   const analysis: Analysis = {
@@ -245,8 +254,9 @@ export async function runScout(docsUrl: string, opts: RunScoutOptions = {}): Pro
     docsUrl: rootUrl,
     generatedAt: new Date().toISOString(),
     ...output,
-    authAlternatives,
-    endpoints,
+    auth: normalized.auth,
+    authAlternatives: normalized.authAlternatives,
+    endpoints: normalized.endpoints,
     risks,
     pagesVisited: session.visits,
     warnings,

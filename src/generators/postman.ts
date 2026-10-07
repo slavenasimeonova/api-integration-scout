@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { credentialParamKeys } from "../core/auth.js";
 import type { Analysis, Auth } from "../core/schema.js";
 import {
   STATUS_LABEL,
@@ -34,7 +35,7 @@ export function buildPostmanCollection(analysis: Analysis, id: string = randomUU
   const auth = primary ? toPostmanAuth(primary.value) : null;
   // Sample-able methods (incl. cookie API keys, which Postman's apikey auth can't express).
   const supported = methods.filter((m) => m === primary || ["api_key", "bearer", "basic", "oauth2"].includes(m.value.type));
-  const credentialParams = credentialParamKeys(methods);
+  const credentialParams = credentialParamKeys(methods.map((m) => m.value));
 
   const folders = new Map<string, ReturnType<typeof buildItem>[]>();
   for (const ep of endpoints) {
@@ -80,19 +81,6 @@ export function buildPostmanCollection(analysis: Analysis, id: string = randomUU
 
 export const AUTH_ALTERNATIVES_FOLDER = "Auth alternatives";
 export const CHECK_HOST_FLAG = "[CHECK HOST]";
-
-/** "query:token", "header:authorization": params that carry credentials and are set by auth instead. */
-function credentialParamKeys(methods: AuthMethod[]): Set<string> {
-  const keys = new Set<string>();
-  for (const { value } of methods) {
-    if (value.type === "api_key" && value.parameterName) {
-      const where = value.location === "query" ? "query" : value.location === "cookie" ? "cookie" : "header";
-      keys.add(`${where}:${value.parameterName.toLowerCase()}`);
-    }
-    if (value.type === "bearer" || value.type === "basic" || value.type === "oauth2") keys.add("header:authorization");
-  }
-  return keys;
-}
 
 function authName(auth: Auth): string {
   const p = auth.parameterName;

@@ -80,11 +80,12 @@ describe("Postman collection", () => {
     expect(c.auth).toMatchObject({ type: "apikey" });
 
     const folder = c.item.find((f) => f.name === AUTH_ALTERNATIVES_FOLDER)!;
+    // Ranked by the auth rule: HTTP Basic before a query parameter.
     expect(folder.item.map((i) => i.name)).toEqual([
-      "Token in query (?api_key=): GET /forecast",
       "HTTP Basic auth: GET /forecast",
+      "Token in query (?api_key=): GET /forecast",
     ]);
-    const [query, basic] = folder.item.map((i) => i.request as Record<string, any>);
+    const [basic, query] = folder.item.map((i) => i.request as Record<string, any>);
     expect(query!.url.raw).toBe("{{baseUrl}}/forecast?city=&api_key={{apiKey}}");
     expect(query!.auth).toEqual({ type: "noauth" });
     expect(query!.description).toContain('"may pass the key as the api_key query parameter instead"');
@@ -99,7 +100,7 @@ describe("Postman collection", () => {
 
   it("never adds an undocumented auth method", () => {
     // The fixture agent also claimed Bearer (fabricated quote) and OAuth (a guess).
-    expect(analysis.authAlternatives.map((a) => a.value?.type)).toEqual(["api_key", "basic"]);
+    expect(analysis.authAlternatives.map((a) => a.value?.type)).toEqual(["basic", "api_key"]);
     expect(analysis.warnings).toEqual(
       expect.arrayContaining([
         expect.stringMatching(/Auth alternative "bearer in header \(Authorization\)" left out/),
@@ -121,16 +122,10 @@ describe("Postman collection", () => {
       { ...analysis, auth: { ...analysis.auth, status: "inferred", reasoning: "guess" } },
       "test-id",
     );
-    expect(c.auth).toEqual({
-      type: "apikey",
-      apikey: [
-        { key: "key", value: "api_key", type: "string" },
-        { key: "value", value: "{{apiKey}}", type: "string" },
-        { key: "in", value: "query", type: "string" },
-      ],
-    });
+    // The best-ranked documented alternative (Basic, ahead of the query parameter).
+    expect(c.auth).toMatchObject({ type: "basic" });
     expect(c.item.find((f) => f.name === AUTH_ALTERNATIVES_FOLDER)!.item.map((i) => i.name)).toEqual([
-      "HTTP Basic auth: GET /forecast",
+      "Token in query (?api_key=): GET /forecast",
     ]);
   });
 
@@ -226,9 +221,9 @@ describe("Markdown summary", () => {
     );
     // Every documented auth method is listed with its source quote.
     expect(md).toContain('> "sending your API key in the X-Api-Key header"');
-    expect(md).toContain("#### 1. api_key in query (api_key)");
+    expect(md).toContain("#### 2. api_key in query (api_key)");
     expect(md).toContain('> "may pass the key as the api_key query parameter instead"');
-    expect(md).toContain("#### 2. basic in header (Authorization)");
+    expect(md).toContain("#### 1. basic in header (Authorization)");
     expect(md).toContain('> "HTTP Basic authentication, with the API key as the username and an empty password"');
     // Rejected methods appear only as warnings/risks, never as auth methods.
     const authSections = md.slice(md.indexOf("### Authentication (primary)"), md.indexOf("### Endpoints"));

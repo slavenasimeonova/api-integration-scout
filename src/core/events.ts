@@ -34,6 +34,7 @@ export type ProgressEvent =
   | (Base<"verification_downgrade"> & { field: string })
   | (Base<"endpoint_host_corrected"> & { endpoint: string; from: string; to: string })
   | (Base<"endpoint_host_ambiguous"> & { endpoint: string; candidates: string[] })
+  | (Base<"auth_primary_changed"> & { from: string; to: string })
   | (Base<"run_completed"> & { totalTokens: number; costUsd: number })
   | Base<"run_failed">;
 
