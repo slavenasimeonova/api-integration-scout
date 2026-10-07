@@ -1,0 +1,24 @@
+{"step":"run_started","detail":"Scouting https://developers.notion.com/reference/intro with claude-sonnet-5-5","url":"https://developers.notion.com/reference/intro","model":"claude-sonnet-5-5","at":"2026-10-07T14:18:01.277Z"}
+{"step":"usage_update","detail":"6,261 / 150,000 tokens","totalTokens":6261,"maxTokens":150000,"at":"2026-10-07T14:18:05.552Z"}
+{"step":"page_fetched","detail":"Fetched Introduction - Notion Docs (1/5)","url":"https://developers.notion.com/reference/intro","pageCount":1,"maxPages":5,"textLength":6334,"at":"2026-10-07T14:18:06.269Z"}
+{"step":"usage_update","detail":"9,468 / 150,000 tokens","totalTokens":9468,"maxTokens":150000,"at":"2026-10-07T14:18:07.565Z"}
+{"step":"base_url_found","detail":"https://api.notion.com, HTTPS required","at":"2026-10-07T14:18:07.574Z"}
+{"step":"usage_update","detail":"9,468 / 150,000 tokens","totalTokens":9468,"maxTokens":150000,"at":"2026-10-07T14:18:08.394Z"}
+{"step":"auth_found","detail":"Bearer token (internal, OAuth, or personal access token)","at":"2026-10-07T14:18:08.406Z"}
+{"step":"usage_update","detail":"9,468 / 150,000 tokens","totalTokens":9468,"maxTokens":150000,"at":"2026-10-07T14:18:08.833Z"}
+{"step":"pagination_found","detail":"Cursor-based: start_cursor/page_size, has_more/next_cursor","at":"2026-10-07T14:18:08.843Z"}
+{"step":"usage_update","detail":"9,468 / 150,000 tokens","totalTokens":9468,"maxTokens":150000,"at":"2026-10-07T14:18:08.845Z"}
+{"step":"page_fetched","detail":"Fetched Request limits - Notion Docs (2/5)","url":"https://developers.notion.com/reference/request-limits","pageCount":2,"maxPages":5,"textLength":11929,"at":"2026-10-07T14:18:09.220Z"}
+{"step":"usage_update","detail":"9,468 / 150,000 tokens","totalTokens":9468,"maxTokens":150000,"at":"2026-10-07T14:18:09.225Z"}
+{"step":"page_fetched","detail":"Fetched Status codes - Notion Docs (3/5)","url":"https://developers.notion.com/reference/status-codes","pageCount":3,"maxPages":5,"textLength":4531,"at":"2026-10-07T14:18:09.491Z"}
+{"step":"usage_update","detail":"17,235 / 150,000 tokens","totalTokens":17235,"maxTokens":150000,"at":"2026-10-07T14:18:11.200Z"}
+{"step":"rate_limit_found","detail":"600/min Business/Enterprise, 180/min others per connection; 429 with Retry-After","at":"2026-10-07T14:18:11.208Z"}
+{"step":"usage_update","detail":"17,235 / 150,000 tokens","totalTokens":17235,"maxTokens":150000,"at":"2026-10-07T14:18:11.593Z"}
+{"step":"error_format_found","detail":"JSON with object=error, status, code, message, optional additional_data","at":"2026-10-07T14:18:11.601Z"}
+{"step":"usage_update","detail":"17,235 / 150,000 tokens","totalTokens":17235,"maxTokens":150000,"at":"2026-10-07T14:18:12.057Z"}
+{"step":"usage_update","detail":"17,235 / 150,000 tokens","totalTokens":17235,"maxTokens":150000,"at":"2026-10-07T14:18:12.066Z"}
+{"step":"page_fetched","detail":"Fetched Versioning - Notion Docs (4/5)","url":"https://developers.notion.com/reference/versioning","pageCount":4,"maxPages":5,"textLength":7882,"at":"2026-10-07T14:18:12.334Z"}
+{"step":"page_fetched","detail":"Fetched Event types & delivery - Notion Docs (5/5)","url":"https://developers.notion.com/reference/webhooks-events-delivery","pageCount":5,"maxPages":5,"textLength":27753,"at":"2026-10-07T14:18:12.931Z"}
+{"step":"page_truncated","detail":"Page truncated: https://developers.notion.com/reference/webhooks-events-delivery has 27753 chars; only the first 12000 were sent to the model","url":"https://developers.notion.com/reference/webhooks-events-delivery","textLength":27753,"maxChars":12000,"at":"2026-10-07T14:18:12.932Z"}
+{"step":"usage_update","detail":"27,054 / 150,000 tokens","totalTokens":27054,"maxTokens":150000,"at":"2026-10-07T14:18:30.933Z"}
+{"step":"run_completed","detail":"Done: 63,754 tokens, $0.1148","totalTokens":63754,"costUsd":0.11483020000000001,"at":"2026-10-07T14:18:31.755Z"}

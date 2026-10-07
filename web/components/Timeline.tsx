@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { formatSeconds, formatTokens, formatUsd, type RunFigures } from "@/lib/figures";
 import { HIDDEN_STEPS, STEP_META } from "@/lib/steps";
 import type { ProgressEvent } from "@/lib/types";
 import styles from "./Timeline.module.css";
@@ -10,10 +11,12 @@ type Props = {
   running: boolean;
   /** Live runs tick the clock; replays show the recorded times. */
   live: boolean;
+  /** Authoritative numbers from the finished analysis; replace the live tallies. */
+  final?: RunFigures;
 };
 
 /** "Watch the agent think": every progress event, plus token, page and time meters. */
-export function Timeline({ events, running, live }: Props) {
+export function Timeline({ events, running, live, final }: Props) {
   const listRef = useRef<HTMLOListElement>(null);
   const now = useNow(live && running);
 
@@ -26,27 +29,38 @@ export function Timeline({ events, running, live }: Props) {
   const lastAt = events.at(-1) ? Date.parse(events.at(-1)!.at) : start;
   const elapsedMs = live && running ? Math.max(0, now - start) : lastAt - start;
 
+  // Live tallies from the events; once finished, the analysis is the source of truth.
   let tokens: { used: number; max: number } | undefined;
-  let pages: { count: number; max: number } | undefined;
+  let maxPages: number | undefined;
+  let pagesRead = 0;
   let costUsd: number | undefined;
   for (const e of events) {
     if (e.step === "usage_update" || e.step === "budget_exceeded") tokens = { used: e.totalTokens, max: e.maxTokens };
-    if (e.step === "page_fetched") pages = { count: e.pageCount, max: e.maxPages };
+    if (e.step === "page_fetched") {
+      pagesRead++;
+      maxPages = e.maxPages;
+    }
     if (e.step === "run_completed") costUsd = e.costUsd;
   }
+  if (final) {
+    pagesRead = final.pagesRead;
+    if (tokens) tokens = { ...tokens, used: final.budgetedTokens };
+    costUsd = final.costUsd;
+  }
+  const shownMs = final ? final.durationMs : elapsedMs;
   const visible = events.filter((e) => !HIDDEN_STEPS.has(e.step));
 
   return (
     <section className={`card ${styles.wrap}`} aria-label="Agent progress">
       <div className={styles.meters}>
-        <Meter label="Pages read" value={pages ? `${pages.count} / ${pages.max}` : "0"} fraction={pages ? pages.count / pages.max : 0} />
+        <Meter label="Pages read" value={maxPages ? `${pagesRead} / ${maxPages}` : `${pagesRead}`} fraction={maxPages ? pagesRead / maxPages : 0} />
         <Meter
-          label="Tokens (budget)"
-          value={tokens ? `${tokens.used.toLocaleString("en-US")} / ${tokens.max.toLocaleString("en-US")}` : "0"}
+          label="Budgeted tokens (excl. cache reads)"
+          value={tokens ? `${formatTokens(tokens.used)} / ${formatTokens(tokens.max)}` : "0"}
           fraction={tokens ? tokens.used / tokens.max : 0}
         />
-        <Meter label="Time" value={`${(elapsedMs / 1000).toFixed(1)}s`} />
-        <Meter label="Cost" value={costUsd !== undefined ? `$${costUsd.toFixed(4)}` : running ? "…" : "-"} />
+        <Meter label="Time" value={formatSeconds(shownMs)} />
+        <Meter label="Cost" value={costUsd !== undefined ? formatUsd(costUsd) : running ? "…" : "-"} />
       </div>
 
       <ol ref={listRef} className={styles.list} aria-live="polite">

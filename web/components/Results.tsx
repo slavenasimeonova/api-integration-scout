@@ -1,5 +1,6 @@
 "use client";
 
+import { formatSeconds, formatTokens, formatUsd, runFigures } from "@/lib/figures";
 import { glanceRows, safeHref, shortPath, STATUS_LABEL } from "@/lib/format";
 import type { Finding, FindingStatus, Risk, RunResult } from "@/lib/types";
 import { Downloads } from "./Downloads";
@@ -10,7 +11,7 @@ const SEVERITY_ORDER: Record<Risk["severity"], number> = { high: 0, medium: 1, l
 
 export function Results({ result }: { result: RunResult }) {
   const a = result.analysis;
-  const r = a.run;
+  const fig = runFigures(a);
   const auths = [{ primary: true, f: a.auth }, ...a.authAlternatives.map((f) => ({ primary: false, f }))].filter((x) => x.f.value);
   const endpoints = a.endpoints.filter((e) => e.value);
   const risks = [...a.risks].sort((x, y) => SEVERITY_ORDER[x.severity] - SEVERITY_ORDER[y.severity]);
@@ -23,9 +24,10 @@ export function Results({ result }: { result: RunResult }) {
           <h1>{a.apiName}</h1>
           <p className={styles.summary}>{a.summary}</p>
           <p className="muted small">
-            From {docsHref ? <a href={docsHref} target="_blank" rel="noreferrer noopener">{a.docsUrl}</a> : a.docsUrl} ·{" "}
-            {a.pagesVisited.filter((p) => p.status === "fetched").length} pages read · {r.model} · {(r.durationMs / 1000).toFixed(0)}s ·{" "}
-            {r.totalTokens.toLocaleString("en-US")} tokens · ${r.costUsd.toFixed(4)}
+            From {docsHref ? <a href={docsHref} target="_blank" rel="noreferrer noopener">{a.docsUrl}</a> : a.docsUrl} · {a.run.model}
+            <br />
+            {fig.pagesRead} {fig.pagesRead === 1 ? "page" : "pages"} read · {formatSeconds(fig.durationMs)} · {formatTokens(fig.totalTokens)} tokens (
+            {formatTokens(fig.budgetedTokens)} budgeted + {formatTokens(fig.cacheReadTokens)} cache reads) · {formatUsd(fig.costUsd)}
           </p>
         </div>
         <Downloads slug={result.slug} files={result.files} postmanErrors={result.postmanErrors} />

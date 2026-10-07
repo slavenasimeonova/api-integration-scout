@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { ExampleBundle } from "@/lib/types";
+import { runFigures } from "@/lib/figures";
 import { Results } from "./Results";
 import { Timeline } from "./Timeline";
 
@@ -42,7 +43,7 @@ export function ExampleReplay({ slug }: { slug: string }) {
   return (
     <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: "0.8rem", justifyItems: "start" }}>
       <div style={{ width: "100%" }}>
-        <Timeline events={bundle.events.slice(0, shown)} running={!done} live={false} />
+        <Timeline events={bundle.events.slice(0, shown)} running={!done} live={false} final={done ? runFigures(bundle.analysis) : undefined} />
       </div>
       {!done && (
         <button type="button" className="btn" onClick={() => setShown(bundle.events.length)}>

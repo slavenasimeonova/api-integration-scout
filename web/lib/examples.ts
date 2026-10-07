@@ -7,10 +7,10 @@ export const EXAMPLES = [
     highlight: "One token, three documented ways to send it",
   },
   {
-    slug: "pushover",
-    name: "Pushover",
-    url: "https://pushover.net/api",
-    highlight: "Credentials in the form body; a long page that gets truncated",
+    slug: "notion",
+    name: "Notion",
+    url: "https://developers.notion.com/reference/intro",
+    highlight: "Versioning by header, cursor pagination; all seven areas documented",
   },
   {
     slug: "postmark",

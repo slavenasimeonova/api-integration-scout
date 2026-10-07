@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { EXAMPLES } from "@/lib/examples";
+import { runFigures } from "@/lib/figures";
 import { readNdjson } from "@/lib/ndjson";
 import type { LimitStatus, ProgressEvent, RunResult, RunStreamLine } from "@/lib/types";
 import { Results } from "./Results";
@@ -160,7 +161,7 @@ export function Scout() {
 
       {phase !== "idle" && (
         <div className={styles.run}>
-          <Timeline events={events} running={running} live />
+          <Timeline events={events} running={running} live final={result ? runFigures(result.analysis) : undefined} />
           {phase === "failed" && <p className="error-box">{error}</p>}
           {phase === "cancelled" && <p className="muted">Run cancelled. Nothing more will be spent on it.</p>}
           {(phase === "failed" || phase === "cancelled" || phase === "done") && (

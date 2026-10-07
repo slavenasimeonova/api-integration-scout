@@ -1,0 +1,355 @@
+{
+  "schemaVersion": 1,
+  "docsUrl": "https://developers.notion.com/reference/intro",
+  "generatedAt": "2026-10-07T14:18:31.755Z",
+  "apiName": "Notion API",
+  "summary": "The Notion REST API lets connections (integrations) read and write Notion pages, databases/data sources, blocks, comments, users and files. It uses JSON over HTTPS, bearer-token auth, cursor-based pagination, date-based versioning via a required header, and webhooks for change events.",
+  "baseUrl": {
+    "status": "documented",
+    "value": "https://api.notion.com",
+    "sources": [
+      {
+        "url": "https://developers.notion.com/reference/intro",
+        "quote": "The base URL to send all API requests is https://api.notion.com."
+      }
+    ]
+  },
+  "auth": {
+    "status": "documented",
+    "value": {
+      "type": "bearer",
+      "location": "header",
+      "parameterName": "Authorization",
+      "description": "Bearer token: internal connection API token, OAuth access token from a public connection, or a personal access token."
+    },
+    "sources": [
+      {
+        "url": "https://developers.notion.com/reference/intro",
+        "quote": "A bearer token is required to interact with the Notion API."
+      }
+    ]
+  },
+  "authAlternatives": [],
+  "endpoints": [
+    {
+      "status": "documented",
+      "value": {
+        "method": "POST",
+        "path": "/v1/data_sources/{data_source_id}/query",
+        "purpose": "Query a data source (paginated)",
+        "keyParams": [
+          {
+            "name": "data_source_id",
+            "in": "path",
+            "required": true,
+            "description": "Data source ID"
+          },
+          {
+            "name": "start_cursor",
+            "in": "body",
+            "required": false,
+            "description": "Pagination cursor"
+          }
+        ]
+      },
+      "sources": [
+        {
+          "url": "https://developers.notion.com/reference/intro",
+          "quote": "curl -X POST 'https://api.notion.com/v1/data_sources/<data_source_id>/query'"
+        }
+      ]
+    },
+    {
+      "status": "inferred",
+      "value": {
+        "method": "GET",
+        "path": "/v1/users",
+        "purpose": "List all users (paginated)",
+        "keyParams": [
+          {
+            "name": "start_cursor",
+            "in": "query",
+            "required": false,
+            "description": "Pagination cursor"
+          },
+          {
+            "name": "page_size",
+            "in": "query",
+            "required": false,
+            "description": "Items per page, max 100"
+          }
+        ]
+      },
+      "sources": [
+        {
+          "url": "https://developers.notion.com/reference/intro"
+        }
+      ],
+      "reasoning": "Intro lists 'GET List all users' as paginated; path /v1/users inferred from /v1/users/{id} in the versioning example."
+    },
+    {
+      "status": "inferred",
+      "value": {
+        "method": "POST",
+        "path": "/v1/search",
+        "purpose": "Search pages and data sources shared with the connection (paginated)",
+        "keyParams": [
+          {
+            "name": "start_cursor",
+            "in": "body",
+            "required": false,
+            "description": "Pagination cursor"
+          }
+        ]
+      },
+      "sources": [
+        {
+          "url": "https://developers.notion.com/reference/intro"
+        }
+      ],
+      "reasoning": "Intro lists 'POST Search' as paginated; the path is inferred from the /v1 prefix and not shown on fetched pages."
+    },
+    {
+      "status": "documented",
+      "value": {
+        "method": "GET",
+        "path": "/v1/blocks/{id}",
+        "purpose": "Retrieve a block",
+        "keyParams": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Block ID"
+          }
+        ]
+      },
+      "sources": [
+        {
+          "url": "https://developers.notion.com/reference/request-limits",
+          "quote": "Retrieve each block with GET /v1/blocks/:id"
+        }
+      ]
+    },
+    {
+      "status": "inferred",
+      "value": {
+        "method": "GET",
+        "path": "/v1/blocks/{block_id}/children",
+        "purpose": "List block children (paginated)",
+        "keyParams": [
+          {
+            "name": "start_cursor",
+            "in": "query",
+            "required": false,
+            "description": "Pagination cursor"
+          }
+        ]
+      },
+      "sources": [
+        {
+          "url": "https://developers.notion.com/reference/intro"
+        }
+      ],
+      "reasoning": "Intro lists 'List block children' as paginated; exact path not shown in fetched pages."
+    }
+  ],
+  "pagination": {
+    "status": "documented",
+    "value": {
+      "style": "cursor",
+      "parameters": [
+        "start_cursor",
+        "page_size",
+        "has_more",
+        "next_cursor"
+      ],
+      "description": "Pass next_cursor as start_cursor (query string for GET, body for POST); page_size max 100. Treat cursors as opaque."
+    },
+    "sources": [
+      {
+        "url": "https://developers.notion.com/reference/intro",
+        "quote": "Endpoints that return lists of objects support cursor-based pagination requests."
+      }
+    ]
+  },
+  "rateLimits": {
+    "status": "documented",
+    "value": {
+      "limits": "Per connection: 600 req/min (Business/Enterprise), 180 req/min (other plans); plus a shared per-workspace limit and some per-endpoint limits",
+      "headers": [
+        "Retry-After"
+      ],
+      "description": "Exceeding returns HTTP 429 rate_limited (529 service_overload when overloaded) with additional_data.rate_limit_reason; respect Retry-After. Limits may change."
+    },
+    "sources": [
+      {
+        "url": "https://developers.notion.com/reference/request-limits",
+        "quote": "Connections should handle HTTP 429 and 529 responses and respect the Retry-After response header."
+      }
+    ]
+  },
+  "webhooks": {
+    "status": "documented",
+    "value": {
+      "supported": true,
+      "events": [
+        "page.created",
+        "page.properties_updated",
+        "page.content_updated",
+        "page.moved",
+        "page.deleted",
+        "page.undeleted",
+        "page.locked",
+        "page.unlocked",
+        "database.created",
+        "database.content_updated",
+        "database.schema_updated",
+        "data_source.created",
+        "data_source.content_updated",
+        "data_source.schema_updated",
+        "comment.created",
+        "comment.updated",
+        "comment.deleted"
+      ],
+      "signatureVerification": "Not seen in the fetched (truncated) page; see the Webhooks overview page.",
+      "description": "Webhooks are signals only, so fetch the latest data via the API. Some events are aggregated, delivery is not ordered, and up to 8 retries over about 24 hours."
+    },
+    "sources": [
+      {
+        "url": "https://developers.notion.com/reference/webhooks-events-delivery",
+        "quote": "we will retry delivery up to 8 times using an exponential backoff schedule"
+      }
+    ]
+  },
+  "errorFormat": {
+    "status": "documented",
+    "value": {
+      "description": "JSON error object with object=error, HTTP status, a stable string code, a message, and optional additional_data (e.g. retry guidance, rate_limit_reason).",
+      "example": "{\"object\":\"error\",\"status\":503,\"code\":\"service_unavailable\",\"message\":\"The change was saved, but the response could not be built in time. Read the object again instead of repeating the write.\",\"additional_data\":{...}}"
+    },
+    "sources": [
+      {
+        "url": "https://developers.notion.com/reference/status-codes",
+        "quote": "Error responses contain more detail about the error in the response body, in the \"code\" and \"message\" properties."
+      }
+    ]
+  },
+  "versioning": {
+    "status": "documented",
+    "value": {
+      "scheme": "header",
+      "current": "2026-03-11",
+      "description": "Date-named versions set via the required Notion-Version header. Backwards-incompatible changes get a new version, additive changes ship to all versions. Opt-in betas use a Notion-Beta header. URL /v1 is unrelated to versioning."
+    },
+    "sources": [
+      {
+        "url": "https://developers.notion.com/reference/versioning",
+        "quote": "Set the version by including a Notion-Version header. Setting this header is required."
+      }
+    ]
+  },
+  "risks": [
+    {
+      "severity": "high",
+      "title": "Write may succeed despite 503",
+      "detail": "A write can save and still return 503. Check additional_data.retry_guidance and read the object before retrying, or you may duplicate it.",
+      "origin": "agent"
+    },
+    {
+      "severity": "medium",
+      "title": "Webhook events are signals only and unordered",
+      "detail": "Events are aggregated, may arrive out of order, and carry no full content. Re-fetch current state and order by timestamp.",
+      "origin": "agent"
+    },
+    {
+      "severity": "medium",
+      "title": "Rate limits are shared and may change",
+      "detail": "There is also a per-workspace limit with Retry-After possibly over a minute, and Notion plans to adjust limits.",
+      "origin": "agent"
+    },
+    {
+      "severity": "medium",
+      "title": "Notion-Version header required",
+      "detail": "Requests without it return 400 missing_version. Newer versions (e.g. 2025-09-03 data sources) change endpoints and webhook event types.",
+      "origin": "agent"
+    },
+    {
+      "severity": "low",
+      "title": "Resources must be shared with the connection",
+      "detail": "Unshared resources return 404 object_not_found, which is easily mistaken for a bad ID.",
+      "origin": "agent"
+    },
+    {
+      "severity": "low",
+      "title": "Payload size limits",
+      "detail": "Maximum 1000 blocks and 500KB per request, plus property-level limits (e.g. 2000 characters of rich text).",
+      "origin": "agent"
+    },
+    {
+      "severity": "low",
+      "title": "Several endpoint paths unverified",
+      "detail": "Only 5 pages were fetched, so most endpoint paths and parameters were not read from the reference pages.",
+      "origin": "agent"
+    }
+  ],
+  "openQuestions": [
+    "How are webhook payloads signed and verified, and how are subscriptions created and verified? The Webhooks overview page was not fetched.",
+    "What are the exact paths and parameters for pages, databases/data sources, comments and file uploads?",
+    "What are the OAuth flow details and token lifetimes for public connections, and how do personal access tokens work?",
+    "What are the per-workspace and per-endpoint rate limits?"
+  ],
+  "pagesVisited": [
+    {
+      "url": "https://developers.notion.com/reference/intro",
+      "status": "fetched",
+      "textLength": 6334,
+      "lowText": false,
+      "truncated": false
+    },
+    {
+      "url": "https://developers.notion.com/reference/request-limits",
+      "status": "fetched",
+      "textLength": 11929,
+      "lowText": false,
+      "truncated": false
+    },
+    {
+      "url": "https://developers.notion.com/reference/status-codes",
+      "status": "fetched",
+      "textLength": 4531,
+      "lowText": false,
+      "truncated": false
+    },
+    {
+      "url": "https://developers.notion.com/reference/versioning",
+      "status": "fetched",
+      "textLength": 7882,
+      "lowText": false,
+      "truncated": false
+    },
+    {
+      "url": "https://developers.notion.com/reference/webhooks-events-delivery",
+      "status": "fetched",
+      "textLength": 27753,
+      "lowText": false,
+      "truncated": true
+    }
+  ],
+  "warnings": [
+    "Page truncated: https://developers.notion.com/reference/webhooks-events-delivery (27753 chars, first 12000 sent to the model); findings from this page may be incomplete",
+    "Page limit of 5 reached; some docs may not have been read"
+  ],
+  "run": {
+    "model": "claude-sonnet-5-5",
+    "startedAt": "2026-10-07T14:18:01.276Z",
+    "durationMs": 27070,
+    "numTurns": 12,
+    "inputTokens": 8,
+    "outputTokens": 3988,
+    "cacheReadInputTokens": 32806,
+    "cacheCreationInputTokens": 26952,
+    "totalTokens": 63754,
+    "costUsd": 0.11483020000000001
+  }
+}

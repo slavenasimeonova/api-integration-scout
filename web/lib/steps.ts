@@ -25,6 +25,7 @@ export const STEP_META: Record<ProgressStep, { label: string; tone: Tone }> = {
   verification_downgrade: { label: "unverified", tone: "warn" },
   endpoint_host_corrected: { label: "host fixed", tone: "warn" },
   endpoint_host_ambiguous: { label: "host?", tone: "warn" },
+  auth_primary_changed: { label: "auth rule", tone: "neutral" },
   run_completed: { label: "done", tone: "done" },
   run_failed: { label: "failed", tone: "error" },
 };
