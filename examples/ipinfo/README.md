@@ -10,12 +10,13 @@ The run used `claude-sonnet-5-5` and read 3 pages, two of which were truncated a
 
 | File | Contents |
 | --- | --- |
+| [`analysis.json`](analysis.json) | The run's structured result (the source the other files are generated from) |
 | [`analysis.md`](analysis.md) | Integration summary: every finding labeled Documented, Inferred or Not found in docs, with source quotes |
 | [`postman_collection.json`](postman_collection.json) | Postman Collection v2.1, validated against the official schema; credentials are only `{{apiKey}}`. Every request has tests: status 2xx and response time, plus a JSON check where the docs give evidence |
 | [`postman_environment.json`](postman_environment.json) | Environment template: `baseUrl` prefilled, `apiKey` empty |
 | [`sequence.mmd`](sequence.mmd) | Mermaid sequence diagram of the main flow |
 
-**How these files were produced.** The model's findings are exactly what the run returned. The output files were later regenerated offline from that run's `analysis.json` with the current code, with no model call. That changed three things:
+**How these files were produced.** The model's findings are exactly what the run returned. The files are regenerated offline from `analysis.json` with `npm run build:examples`, which applies the same code rules as a live run (`src/core/rules.ts`) and makes no model call. A test fails if the committed files drift from that output. Compared with the original run, this changed three things:
 
 - `GET /{ip}/json` now points to `https://ipinfo.io`, not the `api.ipinfo.io` base URL. That host comes from a verified quote in the docs (`curl https://ipinfo.io/8.8.8.8/json?token=$TOKEN`), and the correction is listed under Warnings in `analysis.md`.
 - The `ip` path variable is prefilled with `8.8.8.8`, the value in the docs' own example URLs, and the `token` query param no longer appears on every endpoint, since auth supplies it.

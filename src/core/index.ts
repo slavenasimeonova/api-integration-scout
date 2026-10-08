@@ -6,3 +6,5 @@ export type { Fetcher, FetchResponse } from "./fetcher.js";
 export type * from "./schema.js";
 export type { AnalysisEndpoint, HostCheck } from "./hosts.js";
 export { normalizeAuth, authRank, credentialParamKeys, primaryChangeDetail, type AuthNormalization } from "./auth.js";
+export { applyCodeRules, applyCodeRulesToAnalysis, type RuleNotice } from "./rules.js";
+export type { PendingEvent } from "./events.js";

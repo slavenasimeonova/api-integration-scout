@@ -44,9 +44,12 @@ export type OnEvent = (event: ProgressEvent) => void;
 
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never;
 
+/** An event before the emitter stamps it with `at`. */
+export type PendingEvent = DistributiveOmit<ProgressEvent, "at">;
+
 /** Builds an emitter that stamps each event and never lets a listener crash the run. */
 export function createEmitter(onEvent: OnEvent | undefined) {
-  return (event: DistributiveOmit<ProgressEvent, "at">): void => {
+  return (event: PendingEvent): void => {
     if (!onEvent) return;
     try {
       onEvent({ ...event, at: new Date().toISOString() } as ProgressEvent);

@@ -1,0 +1,304 @@
+{
+  "schemaVersion": 1,
+  "docsUrl": "https://ipinfo.io/developers",
+  "generatedAt": "2026-10-06T15:06:47.983Z",
+  "apiName": "IPinfo",
+  "summary": "IPinfo is a REST API for IP intelligence: geolocation, ASN, anonymity/hosting/mobile flags, and more. It has a free Lite tier and paid Core/Plus/Max tiers, plus a batch endpoint of up to 1,000 lookups per request. The docs cover both a newer api.ipinfo.io schema and a legacy ipinfo.io schema.",
+  "baseUrl": {
+    "status": "documented",
+    "value": "https://api.ipinfo.io",
+    "sources": [
+      {
+        "url": "https://ipinfo.io/developers",
+        "quote": "IPinfo Lite uses the api.ipinfo.io API URL and /lite endpoint."
+      }
+    ]
+  },
+  "auth": {
+    "status": "documented",
+    "value": {
+      "type": "bearer",
+      "location": "header",
+      "parameterName": "Authorization",
+      "description": "Bearer token in the Authorization header. The same API token is also accepted as a query parameter or as the HTTP Basic username. The token is on the dashboard."
+    },
+    "sources": [
+      {
+        "url": "https://ipinfo.io/developers",
+        "quote": "A Bearer token in the Authorization header (Authorization: Bearer $TOKEN)"
+      }
+    ]
+  },
+  "authAlternatives": [
+    {
+      "status": "documented",
+      "value": {
+        "type": "basic",
+        "location": "header",
+        "parameterName": "Authorization",
+        "description": "HTTP Basic with the token as the username and an empty password"
+      },
+      "sources": [
+        {
+          "url": "https://ipinfo.io/developers",
+          "quote": "HTTP Basic Authentication (using the token as the username, e.g. curl -u $TOKEN:)"
+        }
+      ]
+    },
+    {
+      "status": "documented",
+      "value": {
+        "type": "api_key",
+        "location": "query",
+        "parameterName": "token",
+        "description": "Token as a query parameter"
+      },
+      "sources": [
+        {
+          "url": "https://ipinfo.io/developers",
+          "quote": "A token query parameter (?token=$TOKEN)"
+        }
+      ]
+    }
+  ],
+  "endpoints": [
+    {
+      "status": "documented",
+      "value": {
+        "method": "GET",
+        "path": "/lite/{ip}",
+        "purpose": "Free-tier lookup returning country, continent and ASN. {ip} can be 'me' for the caller's IP. An optional /{field} suffix returns a single field.",
+        "keyParams": [
+          {
+            "name": "ip",
+            "in": "path",
+            "required": true,
+            "description": "IPv4, IPv6, or 'me'"
+          }
+        ]
+      },
+      "sources": [
+        {
+          "url": "https://ipinfo.io/developers",
+          "quote": "curl https://api.ipinfo.io/lite/8.8.8.8?token=$TOKEN"
+        }
+      ]
+    },
+    {
+      "status": "documented",
+      "value": {
+        "method": "GET",
+        "path": "/lookup/{ip}",
+        "purpose": "Paid Core/Plus/Max lookup with geolocation, ASN and network flags. {ip} can be 'me'.",
+        "keyParams": [
+          {
+            "name": "ip",
+            "in": "path",
+            "required": true,
+            "description": "IPv4, IPv6, or 'me'"
+          }
+        ]
+      },
+      "sources": [
+        {
+          "url": "https://ipinfo.io/developers/core-api",
+          "quote": "curl https://api.ipinfo.io/lookup/8.8.8.8?token=$TOKEN"
+        }
+      ]
+    },
+    {
+      "status": "documented",
+      "value": {
+        "method": "POST",
+        "path": "/batch",
+        "purpose": "Batch up to 1,000 lookups or URL patterns (e.g. lite/1.1.1.1, resproxy/IP, AS number) in one request. The body is a JSON array, a newline-separated list or a space-separated list.",
+        "keyParams": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "description": "List of IPs or URL patterns"
+          }
+        ]
+      },
+      "sources": [
+        {
+          "url": "https://ipinfo.io/developers/batch-enrichment-api",
+          "quote": "The /batch API endpoint lets you group up to 1,000 IPinfo API requests into a single HTTP request."
+        }
+      ]
+    },
+    {
+      "status": "documented",
+      "value": {
+        "method": "POST",
+        "path": "/batch/lite",
+        "purpose": "Batch lookup for free-tier tokens (Lite data)",
+        "keyParams": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "description": "List of IPs"
+          }
+        ]
+      },
+      "sources": [
+        {
+          "url": "https://ipinfo.io/developers/batch-enrichment-api",
+          "quote": "Free-tier users should use api.ipinfo.io/batch/lite"
+        }
+      ]
+    },
+    {
+      "status": "documented",
+      "value": {
+        "method": "GET",
+        "path": "https://ipinfo.io/{ip}/json",
+        "purpose": "Legacy schema lookup on the host ipinfo.io, not api.ipinfo.io",
+        "keyParams": [
+          {
+            "name": "ip",
+            "in": "path",
+            "required": true,
+            "description": "IP address"
+          }
+        ]
+      },
+      "sources": [
+        {
+          "url": "https://ipinfo.io/developers/core-api",
+          "quote": "curl https://ipinfo.io/8.8.8.8/json?token=$TOKEN"
+        }
+      ],
+      "hostCheck": {
+        "status": "corrected",
+        "from": "/{ip}/json",
+        "to": "https://ipinfo.io/{ip}/json",
+        "evidence": "curl https://ipinfo.io/8.8.8.8/json?token=$TOKEN"
+      }
+    }
+  ],
+  "pagination": {
+    "status": "not_found",
+    "value": null,
+    "sources": []
+  },
+  "rateLimits": {
+    "status": "documented",
+    "value": {
+      "limits": "Lite is unlimited. Paid plans have a monthly request quota. There are no daily, hourly, concurrency or per-second caps on paid plans.",
+      "headers": [],
+      "description": "Exceeding the plan's monthly limit returns HTTP 429. With metered billing enabled, usage continues through overages."
+    },
+    "sources": [
+      {
+        "url": "https://ipinfo.io/developers",
+        "quote": "If you exceed your plan's limit, you'll receive a 429 HTTP status code."
+      }
+    ]
+  },
+  "webhooks": {
+    "status": "not_found",
+    "value": null,
+    "sources": []
+  },
+  "errorFormat": {
+    "status": "not_found",
+    "value": null,
+    "sources": []
+  },
+  "versioning": {
+    "status": "inferred",
+    "value": {
+      "scheme": "other",
+      "description": "No version number is documented. The docs describe an updated schema on api.ipinfo.io (/lite, /lookup) alongside a legacy schema on ipinfo.io."
+    },
+    "sources": [
+      {
+        "url": "https://ipinfo.io/developers/core-api",
+        "quote": "Our legacy API is still maintained with fresh data"
+      }
+    ],
+    "reasoning": "The docs show two parallel API generations by host and schema, with no explicit version scheme or deprecation policy."
+  },
+  "risks": [
+    {
+      "severity": "medium",
+      "title": "Two response schemas",
+      "detail": "The new api.ipinfo.io schema (nested geo/as) differs from the legacy ipinfo.io schema (flat city/loc, asn object). Privacy Extended data is only on the legacy route. Choose one deliberately.",
+      "origin": "agent"
+    },
+    {
+      "severity": "medium",
+      "title": "Error format undocumented",
+      "detail": "The pages fetched give no error body schema. Only a 429 on quota exhaustion is mentioned. Free tokens calling /lookup get an error whose shape is unspecified.",
+      "origin": "agent"
+    },
+    {
+      "severity": "medium",
+      "title": "Token exposure",
+      "detail": "The token is commonly passed as a query parameter, which can leak into logs. Use the Bearer header on the server side. JSONP and CORS client-side use would expose the token.",
+      "origin": "agent"
+    },
+    {
+      "severity": "low",
+      "title": "Tier-gated endpoints",
+      "detail": "/lookup and most batch patterns need a paid plan. Lite is free but returns only country and ASN data.",
+      "origin": "agent"
+    },
+    {
+      "severity": "low",
+      "title": "Monthly quota and overage billing",
+      "detail": "Hitting the quota returns 429 unless metered billing is on, in which case overages are billed.",
+      "origin": "agent"
+    }
+  ],
+  "openQuestions": [
+    "What is the error response body format and what are the codes for invalid token, invalid IP, and free token on a paid endpoint?",
+    "Is there a versioning or deprecation policy for the legacy ipinfo.io schema?",
+    "Are there any rate limit response headers, or a usage endpoint to check remaining quota?",
+    "Does any endpoint paginate, for example ranges or hosted domains? Those pages were not fetched.",
+    "Is there an OpenAPI spec at /developers/openapi-spec? It was not fetched."
+  ],
+  "pagesVisited": [
+    {
+      "url": "https://ipinfo.io/developers",
+      "status": "fetched",
+      "textLength": 8154,
+      "lowText": false,
+      "truncated": false
+    },
+    {
+      "url": "https://ipinfo.io/developers/batch-enrichment-api",
+      "status": "fetched",
+      "textLength": 15350,
+      "lowText": false,
+      "truncated": true
+    },
+    {
+      "url": "https://ipinfo.io/developers/core-api",
+      "status": "fetched",
+      "textLength": 12095,
+      "lowText": false,
+      "truncated": true
+    }
+  ],
+  "warnings": [
+    "Page truncated: https://ipinfo.io/developers/batch-enrichment-api (15350 chars, first 12000 sent to the model); findings from this page may be incomplete",
+    "Page truncated: https://ipinfo.io/developers/core-api (12095 chars, first 12000 sent to the model); findings from this page may be incomplete",
+    "Endpoint GET /{ip}/json: host corrected to https://ipinfo.io/{ip}/json from the docs' example URL (\"curl https://ipinfo.io/8.8.8.8/json?token=$TOKEN\")"
+  ],
+  "run": {
+    "model": "claude-sonnet-5-5",
+    "startedAt": "2026-10-06T15:06:19.468Z",
+    "durationMs": 26718,
+    "numTurns": 10,
+    "inputTokens": 8,
+    "outputTokens": 3601,
+    "cacheReadInputTokens": 47271,
+    "cacheCreationInputTokens": 29193,
+    "totalTokens": 80073,
+    "costUsd": 0.1194527
+  }
+}
