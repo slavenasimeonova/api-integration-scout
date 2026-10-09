@@ -174,6 +174,13 @@ export async function runCollection(opts: RunOptions): Promise<RunOutcome> {
   return { report, jsonPath: `${base}.json`, markdownPath: `${base}.md` };
 }
 
+const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+
+/** One-line totals for the CLI, e.g. "2 passed, 0 failed, 1 expected failure, 0 skipped of 3 requests". */
+export function summaryLine(t: RunReport["totals"]): string {
+  return `${t.passed} passed, ${t.failed} failed, ${plural(t.expectedFailures, "expected failure")}, ${t.skipped} skipped of ${plural(t.requests, "request")}`;
+}
+
 const cell = (s: string) => s.replace(/\|/g, "\\|").replace(/[\r\n]+/g, " ");
 
 export function renderMarkdown(r: RunReport): string {
@@ -181,7 +188,7 @@ export function renderMarkdown(r: RunReport): string {
   const lines = [
     `# Postman run: ${r.collection}`,
     "",
-    `Run ${r.startedAt} with Newman. ${t.run} of ${t.requests} requests sent: **${t.passed} passed, ${t.failed} failed**, ${t.expectedFailures} expected ${t.expectedFailures === 1 ? "failure" : "failures"}, ${t.skipped} skipped.`,
+    `Run ${r.startedAt} with Newman. ${t.run} of ${plural(t.requests, "request")} sent: **${t.passed} passed, ${t.failed} failed**, ${plural(t.expectedFailures, "expected failure")}, ${t.skipped} skipped.`,
     `Writes ${r.options.allowWrites ? "allowed (--allow-writes)" : "not sent (GET only)"}; ${r.options.delayMs} ms between requests; ${r.options.timeoutMs} ms timeout.`,
     "",
     "This report has no headers, bodies, full URLs or credentials.",

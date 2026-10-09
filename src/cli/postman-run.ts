@@ -1,6 +1,6 @@
 import path from "node:path";
 import { parseArgs } from "node:util";
-import { runCollection } from "../postman/run.js";
+import { runCollection, summaryLine } from "../postman/run.js";
 
 const USAGE = `Usage: npm run postman:run -- <postman_collection.json> [options]
 (PowerShell: npm.cmd run postman:run -- ...)
@@ -97,14 +97,11 @@ async function main(): Promise<number> {
     if (r.outcome === "fail") for (const t of r.tests.filter((x) => !x.passed)) console.log(`        - ${t.name}: ${t.error}`);
   }
   for (const s of report.skipped) console.log(`  SKIP  ${s.name}  (${s.reason})`);
-  const t = report.totals;
   for (const name of report.unmatchedExpectFail) console.log(`  Note: --expect-fail "${name}" matched no request`);
-  console.log(
-    `\n${t.passed} passed, ${t.failed} failed, ${t.expectedFailures} expected failures, ${t.skipped} skipped of ${t.requests} requests`,
-  );
+  console.log(`\n${summaryLine(report.totals)}`);
   console.log(`Report: ${path.relative(process.cwd(), markdownPath)}`);
   console.log(`        ${path.relative(process.cwd(), jsonPath)}`);
-  return t.failed > 0 ? 1 : 0;
+  return report.totals.failed > 0 ? 1 : 0;
 }
 
 main().then(
