@@ -29,9 +29,14 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: web/package-lock.json
+          cache-dependency-path: |
+            package-lock.json
+            web/package-lock.json
       - id: pages
         uses: actions/configure-pages@v5
+      # web/ type-checks against ../src, which imports zod, cheerio and the Agent SDK.
+      - run: npm ci --ignore-scripts
+        working-directory: .
       - run: npm ci
       - run: npm run build:static
         env:
