@@ -24,6 +24,13 @@ The site URL: **https://slavenasimeonova.github.io/api-integration-scout/**
 2. Under **Build and deployment**, set **Source** to **GitHub Actions**. You don't need to pick a branch or a theme.
 3. That's it. The repo is public, which Pages needs on a free account.
 
+If the **GitHub Actions** option doesn't appear in the settings, enable Pages with the GitHub CLI instead (this is how it was set up):
+
+```powershell
+gh api -X POST repos/slavenasimeonova/api-integration-scout/pages -f build_type=workflow
+gh workflow run pages.yml --ref main
+```
+
 ### Deploy
 
 Push to `main` (PowerShell):
