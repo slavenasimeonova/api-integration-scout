@@ -1,21 +1,18 @@
-{"step":"run_started","detail":"Scouting https://ipinfo.io/developers with claude-sonnet-5-5","url":"https://ipinfo.io/developers","model":"claude-sonnet-5-5","at":"2026-10-07T08:35:02.667Z"}
-{"step":"usage_update","detail":"6,258 / 150,000 tokens","totalTokens":6258,"maxTokens":150000,"at":"2026-10-07T08:35:06.731Z"}
-{"step":"page_fetched","detail":"Fetched Developer Resource | IPinfo.io (1/5)","url":"https://ipinfo.io/developers","pageCount":1,"maxPages":5,"textLength":8154,"at":"2026-10-07T08:35:07.838Z"}
-{"step":"usage_update","detail":"12,379 / 150,000 tokens","totalTokens":12379,"maxTokens":150000,"at":"2026-10-07T08:35:09.893Z"}
-{"step":"auth_found","detail":"Token via query param, Basic auth, or Bearer header.","at":"2026-10-07T08:35:09.901Z"}
-{"step":"usage_update","detail":"12,379 / 150,000 tokens","totalTokens":12379,"maxTokens":150000,"at":"2026-10-07T08:35:10.270Z"}
-{"step":"base_url_found","detail":"https://api.ipinfo.io with /lite and /lookup endpoints.","at":"2026-10-07T08:35:10.284Z"}
-{"step":"usage_update","detail":"12,379 / 150,000 tokens","totalTokens":12379,"maxTokens":150000,"at":"2026-10-07T08:35:10.703Z"}
-{"step":"rate_limit_found","detail":"Monthly quota on paid plans; 429 on exceed; Lite unlimited.","at":"2026-10-07T08:35:10.716Z"}
-{"step":"usage_update","detail":"12,379 / 150,000 tokens","totalTokens":12379,"maxTokens":150000,"at":"2026-10-07T08:35:11.090Z"}
-{"step":"usage_update","detail":"12,379 / 150,000 tokens","totalTokens":12379,"maxTokens":150000,"at":"2026-10-07T08:35:11.103Z"}
-{"step":"page_fetched","detail":"Fetched IPinfo Core API | IPinfo.io (3/5)","url":"https://ipinfo.io/developers/core-api","pageCount":3,"maxPages":5,"textLength":12095,"at":"2026-10-07T08:35:11.738Z"}
-{"step":"page_truncated","detail":"Page truncated: https://ipinfo.io/developers/core-api has 12095 chars; only the first 12000 were sent to the model","url":"https://ipinfo.io/developers/core-api","textLength":12095,"maxChars":12000,"at":"2026-10-07T08:35:11.739Z"}
-{"step":"page_fetched","detail":"Fetched Batch Enrichment API | IPinfo.io (2/5)","url":"https://ipinfo.io/developers/batch-enrichment-api","pageCount":2,"maxPages":5,"textLength":15350,"at":"2026-10-07T08:35:11.960Z"}
-{"step":"page_truncated","detail":"Page truncated: https://ipinfo.io/developers/batch-enrichment-api has 15350 chars; only the first 12000 were sent to the model","url":"https://ipinfo.io/developers/batch-enrichment-api","textLength":15350,"maxChars":12000,"at":"2026-10-07T08:35:11.961Z"}
-{"step":"usage_update","detail":"29,005 / 150,000 tokens","totalTokens":29005,"maxTokens":150000,"at":"2026-10-07T08:35:16.176Z"}
-{"step":"endpoint_found","detail":"GET /lite/{ip}, GET /lookup/{ip}, POST /batch (up to 1,000 items), legacy ipinfo.io/{ip}/json.","at":"2026-10-07T08:35:16.187Z"}
-{"step":"usage_update","detail":"29,005 / 150,000 tokens","totalTokens":29005,"maxTokens":150000,"at":"2026-10-07T08:35:16.612Z"}
-{"step":"not_found","detail":"Error format, webhooks, pagination and versioning policy not documented in fetched pages.","at":"2026-10-07T08:35:16.621Z"}
-{"step":"usage_update","detail":"29,005 / 150,000 tokens","totalTokens":29005,"maxTokens":150000,"at":"2026-10-07T08:35:29.522Z"}
-{"step":"run_completed","detail":"Done: 50,726 tokens, $0.1094","totalTokens":50726,"costUsd":0.1093913,"at":"2026-10-07T08:35:30.516Z"}
+{"step":"run_started","detail":"Scouting https://ipinfo.io/developers with claude-sonnet-5-5","url":"https://ipinfo.io/developers","model":"claude-sonnet-5-5","at":"2026-10-09T13:32:29.024Z"}
+{"step":"usage_update","detail":"6,671 / 150,000 tokens","totalTokens":6671,"maxTokens":150000,"at":"2026-10-09T13:32:32.190Z"}
+{"step":"page_fetched","detail":"Fetched Developer Resource | IPinfo.io (1/5)","url":"https://ipinfo.io/developers","pageCount":1,"maxPages":5,"textLength":8154,"at":"2026-10-09T13:32:32.718Z"}
+{"step":"usage_update","detail":"12,797 / 150,000 tokens","totalTokens":12797,"maxTokens":150000,"at":"2026-10-09T13:32:34.361Z"}
+{"step":"base_url_found","detail":"https://api.ipinfo.io with /lite and /lookup endpoints","at":"2026-10-09T13:32:34.364Z"}
+{"step":"usage_update","detail":"12,797 / 150,000 tokens","totalTokens":12797,"maxTokens":150000,"at":"2026-10-09T13:32:34.720Z"}
+{"step":"auth_found","detail":"Token via query param, Basic auth, or Bearer header","at":"2026-10-09T13:32:34.726Z"}
+{"step":"usage_update","detail":"12,797 / 150,000 tokens","totalTokens":12797,"maxTokens":150000,"at":"2026-10-09T13:32:35.086Z"}
+{"step":"rate_limit_found","detail":"Monthly quota on paid plans, 429 when exceeded; Lite unlimited","at":"2026-10-09T13:32:35.090Z"}
+{"step":"usage_update","detail":"12,797 / 150,000 tokens","totalTokens":12797,"maxTokens":150000,"at":"2026-10-09T13:32:35.365Z"}
+{"step":"usage_update","detail":"12,797 / 150,000 tokens","totalTokens":12797,"maxTokens":150000,"at":"2026-10-09T13:32:35.537Z"}
+{"step":"page_fetched","detail":"Fetched Batch Enrichment API | IPinfo.io (2/5)","url":"https://ipinfo.io/developers/batch-enrichment-api","pageCount":2,"maxPages":5,"textLength":15350,"at":"2026-10-09T13:32:35.673Z"}
+{"step":"page_truncated","detail":"Page truncated: https://ipinfo.io/developers/batch-enrichment-api has 15350 chars; only the first 12000 were sent to the model","url":"https://ipinfo.io/developers/batch-enrichment-api","textLength":15350,"maxChars":12000,"at":"2026-10-09T13:32:35.673Z"}
+{"step":"page_fetched","detail":"Fetched IPinfo Core API | IPinfo.io (3/5)","url":"https://ipinfo.io/developers/core-api","pageCount":3,"maxPages":5,"textLength":12095,"at":"2026-10-09T13:32:36.285Z"}
+{"step":"page_truncated","detail":"Page truncated: https://ipinfo.io/developers/core-api has 12095 chars; only the first 12000 were sent to the model","url":"https://ipinfo.io/developers/core-api","textLength":12095,"maxChars":12000,"at":"2026-10-09T13:32:36.285Z"}
+{"step":"usage_update","detail":"29,415 / 150,000 tokens","totalTokens":29415,"maxTokens":150000,"at":"2026-10-09T13:32:51.341Z"}
+{"step":"auth_primary_changed","detail":"Primary auth set to bearer in header (Authorization) instead of api_key in query (token) (rule: header > Basic > query parameter)","from":"api_key in query (token)","to":"bearer in header (Authorization)","at":"2026-10-09T13:32:52.064Z"}
+{"step":"run_completed","detail":"Done: 52,153 tokens, $0.1124","totalTokens":52153,"costUsd":0.1123925,"at":"2026-10-09T13:32:52.065Z"}

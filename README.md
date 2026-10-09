@@ -20,7 +20,7 @@ If the agent marks something as documented but its quote can't be found on the c
 
 ## Real-world example: IPinfo
 
-A real run against [IPinfo's developer docs](https://ipinfo.io/developers) (5-page limit, about 27 seconds, about $0.12). IPinfo accepts the same token three ways, and different client systems need different ones. The agent found all three, and each quote below was checked automatically against the page it came from:
+A real run against [IPinfo's developer docs](https://ipinfo.io/developers) (5-page limit, about 21 seconds, about $0.11). IPinfo accepts the same token three ways, and different client systems need different ones. The agent found all three, and each quote below was checked automatically against the page it came from:
 
 | Auth method | Verified quote from the docs | In the Postman collection |
 | --- | --- | --- |
@@ -28,9 +28,11 @@ A real run against [IPinfo's developer docs](https://ipinfo.io/developers) (5-pa
 | Token in query | "A token query parameter (?token=$TOKEN)" | *Auth alternatives* → `?token={{apiKey}}` |
 | HTTP Basic | "HTTP Basic Authentication (using the token as the username, e.g. curl -u $TOKEN:)" | *Auth alternatives* → Basic, `{{apiKey}}` as the username |
 
-The same run marked pagination, webhooks and error format as **Not found in docs** rather than guessing. It also flagged risks a reviewer would raise, for example "Token exposure. The token is commonly passed as a query parameter, which can leak into logs."
+The same run marked pagination, webhooks and error format as **Not found in docs** rather than guessing. It also flagged risks a reviewer would raise, for example "Token in query string. The token is commonly shown as a query parameter, which can leak into logs; prefer the Bearer header server-side."
 
-**Tested end-to-end in Postman.** I imported the generated collection and environment, set my IPinfo token in `apiKey`, and `GET /lite/me` returned 200 with correct data.
+It also recorded that `GET /lookup/{ip}` needs a paid plan, with the quote "since /lookup is a paid-tier endpoint and will return an error on free tokens." The Postman request carries that note, and the Newman runner reports a 401/402/403 there as an **expected failure** instead of a plain FAIL.
+
+**Tested end-to-end in Postman.** I imported the generated collection and environment, set my IPinfo token in `apiKey`, and `GET /lite/me` returned 200 with correct data. With Newman and a free (Lite) token, the `/lite` requests passed with all three auth methods, and `/lookup` returned 403, as the analysis predicted.
 
 Full output, including the analysis, the Postman collection and the sequence diagram: [`examples/ipinfo/`](examples/ipinfo/).
 
@@ -79,7 +81,7 @@ Saved to `outputs/<api-name>/`:
 | --- | --- |
 | `analysis.json` | Full structured result (schema: `Analysis` in `src/core/schema.ts`) |
 | `analysis.md` | Human-readable integration summary |
-| `postman_collection.json` | Postman Collection v2.1 using `{{baseUrl}}` and `{{apiKey}}`. Validated against the official schema before saving. Path variables are prefilled only with values from the docs' own example URLs (e.g. `ip` = `8.8.8.8` from IPinfo's `curl` examples). A request body is set only when the docs show an example body, verified against the page; otherwise the request has no body and its description lists the documented body fields. Collection auth is the primary documented method; every other documented method (e.g. `?token={{apiKey}}`, HTTP Basic) gets a sample request in the **Auth alternatives** folder |
+| `postman_collection.json` | Postman Collection v2.1 using `{{baseUrl}}` and `{{apiKey}}`. Validated against the official schema before saving. Path variables are prefilled only with values from the docs' own example URLs (e.g. `ip` = `8.8.8.8` from IPinfo's `curl` examples). A request body is set only when the docs show an example body, verified against the page; otherwise the request has no body and its description lists the documented body fields. When the docs state that an endpoint needs a plan or permission (verified quote), its request says so in the description and carries a `scoutRequires` variable for the Newman runner. Collection auth is the primary documented method; every other documented method (e.g. `?token={{apiKey}}`, HTTP Basic) gets a sample request in the **Auth alternatives** folder |
 | `postman_environment.json` | Environment template: public `baseUrl` prefilled when known, `apiKey` empty |
 | `sequence.mmd` | Mermaid sequence diagram of the main integration flow |
 
@@ -103,6 +105,7 @@ The tests never check response fields, so nothing the docs don't state is assume
 
 - Only **GET** requests are sent. POST, PUT, PATCH and DELETE are skipped unless you pass `--allow-writes`.
 - Also skipped, with the reason in the report: requests with an empty path variable or required query value, and requests flagged `[CHECK HOST]`.
+- **Expected failures.** A 401, 402 or 403 counts as an *expected failure* when the analysis says the endpoint needs a plan or permission (a verified quote, e.g. IPinfo's `/lookup` on a free token), or when you name the request with `--expect-fail "GET /lookup/{ip}"` (repeatable). Expected failures are listed separately with the reason and don't fail the run. Any other status on such a request (404, 500, ...) is still a real failure.
 - Requests go one at a time, 500 ms apart (`--delay`), with a 15-second timeout (`--timeout`).
 - The target API's token comes from the `TARGET_API_TOKEN` environment variable (or `.env`). It is set as `{{apiKey}}` in memory only, never written to a file, and never printed.
 
@@ -113,6 +116,8 @@ $env:TARGET_API_TOKEN="your-ipinfo-token"
 npm.cmd run postman:run -- examples\ipinfo\postman_collection.json --env examples\ipinfo\postman_environment.json
 # also send POST/PUT/PATCH/DELETE:
 npm.cmd run postman:run -- examples\ipinfo\postman_collection.json --env examples\ipinfo\postman_environment.json --allow-writes
+# mark another request as expected to fail with your plan:
+npm.cmd run postman:run -- examples\ipinfo\postman_collection.json --env examples\ipinfo\postman_environment.json --expect-fail "GET /lite/{ip}/{field}"
 ```
 
 Command Prompt:
@@ -122,7 +127,7 @@ set TARGET_API_TOKEN=your-ipinfo-token
 npm run postman:run -- examples\ipinfo\postman_collection.json --env examples\ipinfo\postman_environment.json
 ```
 
-The report is saved as Markdown and JSON in `outputs/postman-runs/`. It covers each request (name, status, time, test results) and each skipped request with its reason. It records no headers, bodies, full URLs or credentials, and a run that would write the token into a report fails instead. The exit code is 1 if any request failed, so it also works in CI. A run sends real requests to the target API with your token and counts against that API's quota, but makes no Claude API calls.
+The report is saved as Markdown and JSON in `outputs/postman-runs/`. It covers each request (name, status, time, test results) and each skipped request with its reason. It records no headers, bodies, full URLs or credentials, and a run that would write the token into a report fails instead. The exit code is 1 if any request failed (expected failures don't count), so it also works in CI. A run sends real requests to the target API with your token and counts against that API's quota, but makes no Claude API calls.
 
 ## Web UI (in progress)
 

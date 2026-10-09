@@ -1,12 +1,12 @@
 # Example: IPinfo
 
-Output from a real run against <https://ipinfo.io/developers> on 2026-10-06:
+Output from a real run against <https://ipinfo.io/developers> on 2026-10-09:
 
 ```
 npm run scout -- https://ipinfo.io/developers --max-pages 5
 ```
 
-The run used `claude-sonnet-5-5` and read 3 pages, two of which were truncated at 12,000 characters (both flagged in the analysis). It took 10 turns and 27 seconds. Token usage was 8 input, 3,601 output, 29,193 cache write and 47,271 cache read, for an estimated cost of **$0.12**.
+The run used `claude-sonnet-5-5` and read 3 pages, two of which were truncated at 12,000 characters (both flagged in the analysis). It took 8 turns and 21 seconds. Token usage was 6 input, 3,416 output, 29,341 cache write and 19,390 cache read, for an estimated cost of **$0.11**.
 
 | File | Contents |
 | --- | --- |
@@ -16,14 +16,16 @@ The run used `claude-sonnet-5-5` and read 3 pages, two of which were truncated a
 | [`postman_environment.json`](postman_environment.json) | Environment template: `baseUrl` prefilled, `apiKey` empty |
 | [`sequence.mmd`](sequence.mmd) | Mermaid sequence diagram of the main flow |
 
-**How these files were produced.** The model's findings are exactly what the run returned. The files are regenerated offline from `analysis.json` with `npm run build:examples`, which applies the same code rules as a live run (`src/core/rules.ts`) and makes no model call. A test fails if the committed files drift from that output. Compared with the original run, this changed three things:
+**How these files were produced.** The findings are exactly what the run returned. The files are regenerated offline from `analysis.json` with `npm run build:examples`, which applies the same code rules as a live run (`src/core/rules.ts`) and makes no model call. A test fails if the committed files drift from that output. Things worth noticing:
 
-- `GET /{ip}/json` now points to `https://ipinfo.io`, not the `api.ipinfo.io` base URL. That host comes from a verified quote in the docs (`curl https://ipinfo.io/8.8.8.8/json?token=$TOKEN`), and the correction is listed under Warnings in `analysis.md`.
-- The `ip` path variable is prefilled with `8.8.8.8`, the value in the docs' own example URLs, and the `token` query param no longer appears on every endpoint, since auth supplies it.
-- `POST /batch` has no body. The docs pages read show no example body, so instead of a made-up `{"body": "<body>"}` the request description lists the documented body field.
+- The model picked the token-in-query method as primary; the code rule made the Bearer header primary (listed under Warnings in `analysis.md`).
+- `GET /lookup/{ip}` needs a paid plan, per the verified quote "since /lookup is a paid-tier endpoint and will return an error on free tokens." Its Postman request says so, and the Newman runner reports a 401/402/403 there as an expected failure.
+- `POST /batch` has the example body from the docs (verified against the page). `POST /batch/lite` has none, because the docs pages read show no example for it.
+- Path variables are prefilled from the docs' own example URLs (`ip` = `8.8.8.8`, `field` = `asn`), and the `token` query param is not repeated on every endpoint, since auth supplies it.
+- The legacy `GET /{ip}/json` is on `https://ipinfo.io`, as the docs' example URL shows.
 
-To run the GET requests with Newman (see the main README): set `TARGET_API_TOKEN` to your IPinfo token, then `npm run postman:run -- examples\ipinfo\postman_collection.json --env examples\ipinfo\postman_environment.json` (in PowerShell, `npm.cmd`). The two `POST /batch` requests are skipped unless you pass `--allow-writes`; they have no body, because the docs pages read show no example.
+The collection was tested end-to-end in Postman (`GET /lite/me` returned 200) and with Newman on a free token: `/lite` passed with all three auth methods and `/lookup` returned 403, as predicted.
 
-The collection was tested end-to-end in Postman: imported with the environment, token set in `apiKey`, and `GET /lite/me` returned 200 with correct data.
+To run the GET requests with Newman (see the main README): set `TARGET_API_TOKEN` to your IPinfo token, then `npm run postman:run -- examples\ipinfo\postman_collection.json --env examples\ipinfo\postman_environment.json` (in PowerShell, `npm.cmd`). The two POST requests are skipped unless you pass `--allow-writes`.
 
 These files contain no credentials. All auth values are `{{apiKey}}` placeholders or IPinfo's own `$TOKEN` from its docs.
