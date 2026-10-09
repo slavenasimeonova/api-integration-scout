@@ -1,5 +1,7 @@
 # API Integration Scout
 
+**Live demo:** https://slavenasimeonova.github.io/api-integration-scout/ shows three saved runs (IPinfo, Notion, Postmark) replayed in the browser. Live runs are disabled there to control API costs. Clone the repo to run it locally. Hosting details: [docs/hosting.md](docs/hosting.md).
+
 ## Why I built this
 
 I'm an integration architect with 7 years in enterprise telecom, and the slowest part of every integration is reading vendor docs and working out what's actually documented and what's assumed. This agent does that first pass, and it never presents a guess as fact.
@@ -129,7 +131,7 @@ npm run postman:run -- examples\ipinfo\postman_collection.json --env examples\ip
 
 The report is saved as Markdown and JSON in `outputs/postman-runs/`. It covers each request (name, status, time, test results) and each skipped request with its reason. It records no headers, bodies, full URLs or credentials, and a run that would write the token into a report fails instead. The exit code is 1 if any request failed (expected failures don't count), so it also works in CI. A run sends real requests to the target API with your token and counts against that API's quota, but makes no Claude API calls.
 
-## Web UI (in progress)
+## Web UI
 
 A Next.js app in `web/` that wraps the same core. It has three parts:
 
@@ -160,6 +162,8 @@ npm run dev
 ```
 
 Worker settings (environment variables): `PORT` (8787), `LIMIT_RUNS_PER_VISITOR` (3), `LIMIT_RUNS_PER_DAY` (10), `LIMIT_USD_PER_DAY` (2), `LIMIT_CONCURRENT_RUNS` (2), `WORKER_SECRET` (if set, every `/api` request needs it in `x-scout-secret`), `CLIENT_IP_HEADER` (the header carrying the client IP behind a trusted proxy) and `VISITOR_SALT`. The limit counters are in memory for now. A persistent store is chosen together with the hosting.
+
+Static demo (examples only, no live runs, no API key): `npm run build:static` in `web/` exports the site to `web/out/`, and `npm run preview:static` serves it locally. GitHub Actions deploys it to GitHub Pages; see [docs/hosting.md](docs/hosting.md).
 
 ## Verification at work (offline fixture)
 

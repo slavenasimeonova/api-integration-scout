@@ -70,8 +70,10 @@ examples/ipinfo/ Real run output (regenerated offline with the current host chec
 
 ## Phase 2 progress (2026-10-07)
 
-- Steps 1 to 4 are built (worker, safe fetcher, limits, Next.js screens, local wiring): 130 tests passing. Hosting (step 5) is deliberately undecided.
-- Before deploying, propose the simplest hosting for someone with limited DevOps experience (ideally one service, few accounts) and compare it with Vercel + Cloud Run + Upstash. Every web page is static, so one container serving `web/` (exported) plus the worker is an option.
+- Steps 1 to 4 are built (worker, safe fetcher, limits, Next.js screens, local wiring).
+- **Hosting, stage A (2026-10-09): static demo on GitHub Pages** (free, no card, no new account). `STATIC_DEMO=1` (`npm run build:static` in `web/`) switches `next.config.ts` to `output: "export"` with `basePath` from `PAGES_BASE_PATH`, drops the `/api` rewrite, and inlines `NEXT_PUBLIC_STATIC_DEMO`/`NEXT_PUBLIC_BASE_PATH` (`web/lib/site.ts`). In that build, `Scout.tsx` disables the input and never calls `/api`. `fetch()` of `public/` files must use `assetUrl()`, because only `next/link` adds the base path. `.github/workflows/pages.yml` deploys on pushes to `web/**`. Guide: `docs/hosting.md`.
+- **Hosting, stage B (later, not built): Railway**, one container (the worker also serving the exported web app), and a volume or Redis for the limit counters. It's compared with Vercel + Cloud Run + Upstash in `docs/hosting.md`.
+- Git Bash rewrites `/api-integration-scout` into a Windows path. Use `MSYS_NO_PATHCONV=1` when passing the base path from Bash (PowerShell and CI are unaffected).
 - Deploy with a dedicated key from the "scout-demo" workspace (monthly spend limit), never the local key.
 - `MemoryStore` limit counters reset on restart. Hosts that scale to zero need a persistent store (e.g. Redis or a volume).
 - Recording runs (2026-10-07, `--max-pages 5`): IPinfo $0.109, Postmark $0.130, Notion $0.115. A Pushover run ($0.052) was dropped: its main page is 33k characters, so rate limits and errors were cut off by the 12k cap. Pick examples whose key pages fit under the cap.
