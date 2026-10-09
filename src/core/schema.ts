@@ -97,6 +97,15 @@ export const EndpointValue = z.object({
     .describe(
       "Example request body copied verbatim from the docs (e.g. the JSON in a curl -d example). Omit unless the docs show one for this endpoint; never write one yourself.",
     ),
+  access: z
+    .object({
+      requirement: z.string().describe("Short statement of what is needed, e.g. 'Core, Plus or Max plan' or 'admin scope'"),
+      source: Source.describe("Fetched page and verbatim quote that states the restriction"),
+    })
+    .optional()
+    .describe(
+      "Only if the docs explicitly state that this endpoint needs a specific plan, tier, scope or permission. Omit otherwise; never infer it.",
+    ),
 });
 
 export const Severity = z.enum(["low", "medium", "high"]);

@@ -1,4 +1,4 @@
-import { CHECK_HOST_FLAG } from "../generators/postman.js";
+import { ACCESS_VARIABLE, CHECK_HOST_FLAG } from "../generators/postman.js";
 
 /**
  * Decides which requests of a Postman collection may be sent automatically.
@@ -14,11 +14,15 @@ export type PlannedRequest = {
   method: string;
   run: boolean;
   reason?: string;
+  /** Plan or permission the docs say this endpoint needs (from the analysis). */
+  requires?: string;
+  /** Named with --expect-fail. */
+  expectFail?: boolean;
 };
 
 type Variable = { key?: string; value?: unknown; disabled?: boolean };
-type Url = { raw?: string; variable?: Variable[]; query?: Variable[] } | string;
-type CollectionItem = { name?: string; item?: CollectionItem[]; request?: { method?: string; url?: Url } & Record<string, unknown> } & Record<string, unknown>;
+type Url = { raw?: string; path?: string[]; variable?: Variable[]; query?: Variable[] } | string;
+type CollectionItem = { name?: string; item?: CollectionItem[]; variable?: Variable[]; request?: { method?: string; url?: Url } & Record<string, unknown> } & Record<string, unknown>;
 export type Collection = { info?: { name?: string }; item?: CollectionItem[] } & Record<string, unknown>;
 
 
@@ -32,6 +36,10 @@ function skipReason(item: CollectionItem, allowWrites: boolean): string | undefi
   if (url && typeof url === "object") {
     const pathVar = url.variable?.find((v) => isEmpty(v.value));
     if (pathVar) return `no value for path variable :${pathVar.key}`;
+    // A ":name" path segment with no variable at all would be sent literally.
+    const segments = Array.isArray(url.path) ? url.path : [];
+    const unfilled = segments.find((seg) => /^:/.test(seg) && !url.variable?.some((v) => v.key === seg.slice(1)));
+    if (unfilled) return `no value for path variable ${unfilled}`;
     const query = url.query?.find((q) => !q.disabled && isEmpty(q.value));
     if (query) return `no value for required query parameter ${query.key}`;
   }
@@ -39,8 +47,13 @@ function skipReason(item: CollectionItem, allowWrites: boolean): string | undefi
 }
 
 /** Returns the plan for every request and a copy of the collection with only the runnable ones. */
-export function planCollection(collection: Collection, opts: { allowWrites: boolean }): { plan: PlannedRequest[]; runnable: Collection } {
+export function planCollection(
+  collection: Collection,
+  opts: { allowWrites: boolean; expectFail?: string[] },
+): { plan: PlannedRequest[]; runnable: Collection; unmatchedExpectFail: string[] } {
   const plan: PlannedRequest[] = [];
+  const expectFail = new Set((opts.expectFail ?? []).map((n) => n.trim()));
+  const matched = new Set<string>();
 
   const walk = (items: CollectionItem[], folder: string): CollectionItem[] =>
     items.flatMap((item): CollectionItem[] => {
@@ -50,16 +63,21 @@ export function planCollection(collection: Collection, opts: { allowWrites: bool
       }
       if (!item.request) return [];
       const reason = skipReason(item, opts.allowWrites);
+      const name = item.name ?? "(unnamed)";
+      const requires = item.variable?.find((v) => v.key === ACCESS_VARIABLE && !isEmpty(v.value))?.value;
+      if (expectFail.has(name)) matched.add(name);
       plan.push({
-        name: item.name ?? "(unnamed)",
+        name,
         folder,
         method: (item.request.method ?? "GET").toUpperCase(),
         run: !reason,
         ...(reason ? { reason } : {}),
+        ...(requires !== undefined ? { requires: String(requires) } : {}),
+        ...(expectFail.has(name) ? { expectFail: true } : {}),
       });
       return reason ? [] : [item];
     });
 
   const runnable = { ...collection, item: walk(collection.item ?? [], "") };
-  return { plan, runnable };
+  return { plan, runnable, unmatchedExpectFail: [...expectFail].filter((n) => !matched.has(n)) };
 }

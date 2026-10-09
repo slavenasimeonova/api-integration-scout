@@ -111,6 +111,35 @@ describe("path variable examples", () => {
     expect(pathVariableExamples(ep("/lite/{ip}", "Look up any IP address."))).toEqual({});
   });
 
+  it("creates a variable for every path placeholder, even one the model didn't list (real IPinfo /lite/{ip}/{field})", () => {
+    const analysis = {
+      ...({} as Analysis),
+      apiName: "IPinfo",
+      summary: "",
+      docsUrl: "https://ipinfo.io/developers",
+      generatedAt: "2026-10-09T00:00:00.000Z",
+      baseUrl: { status: "documented" as const, value: "https://api.ipinfo.io", sources: [] },
+      auth: NOT_FOUND,
+      authAlternatives: [],
+      pagination: NOT_FOUND,
+      rateLimits: NOT_FOUND,
+      webhooks: NOT_FOUND,
+      errorFormat: NOT_FOUND,
+      versioning: NOT_FOUND,
+      endpoints: [
+        {
+          status: "documented" as const,
+          value: { method: "GET" as const, path: "/lite/{ip}/{field}", purpose: "One field", keyParams: [{ name: "field", in: "path" as const, required: true, description: "Field name" }] },
+          sources: [{ url: "https://ipinfo.io/developers", quote: "curl https://api.ipinfo.io/lite/8.8.8.8/asn?token=$TOKEN" }],
+        },
+      ],
+    };
+    expect(requests(analysis)[0]!.request.url.variable).toEqual([
+      { key: "ip", value: "8.8.8.8", description: "Path variable (example value from the docs)" },
+      { key: "field", value: "asn", description: "Field name (example value from the docs)" },
+    ]);
+  });
+
   it("prefills the Postman path variable and says where the value came from", () => {
     const analysis = {
       ...({} as Analysis),

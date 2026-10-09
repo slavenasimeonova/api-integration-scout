@@ -16,6 +16,10 @@ The target API's token is read from the TARGET_API_TOKEN environment variable
 Options:
   --env <file>      Postman environment file (e.g. postman_environment.json)
   --allow-writes    Also send POST, PUT, PATCH and DELETE requests
+  --expect-fail <name>
+                    Treat a 401/402/403 on this request as an expected failure,
+                    e.g. --expect-fail "GET /lookup/{ip}" (repeatable). Requests the
+                    analysis marks as plan-gated are handled this way automatically.
   --delay <ms>      Pause between requests (default 500)
   --timeout <ms>    Per-request timeout (default 15000)
   --out <dir>       Report folder (default outputs/postman-runs)
@@ -36,6 +40,7 @@ async function main(): Promise<number> {
       options: {
         env: { type: "string" },
         "allow-writes": { type: "boolean", default: false },
+        "expect-fail": { type: "string", multiple: true, default: [] },
         delay: { type: "string" },
         timeout: { type: "string" },
         out: { type: "string", default: "outputs/postman-runs" },
@@ -78,6 +83,7 @@ async function main(): Promise<number> {
     environmentPath: values.env,
     token,
     allowWrites: values["allow-writes"],
+    expectFail: values["expect-fail"],
     delayMs,
     timeoutMs,
     outDir: values.out,
@@ -86,12 +92,16 @@ async function main(): Promise<number> {
   console.log(`Postman run: ${report.collection}${report.options.allowWrites ? " (writes allowed)" : " (GET only)"}`);
   for (const r of report.results) {
     const detail = r.error ? `request failed: ${r.error}` : `${r.status} in ${r.responseTimeMs} ms`;
-    console.log(`  ${r.passed ? "PASS" : "FAIL"}  ${r.name}  ${detail}`);
-    for (const t of r.tests.filter((x) => !x.passed)) console.log(`        - ${t.name}: ${t.error}`);
+    const label = r.outcome === "pass" ? "PASS" : r.outcome === "fail" ? "FAIL" : "EXPECTED FAIL";
+    console.log(`  ${label}  ${r.name}  ${detail}${r.expected ? `  (${r.expected})` : ""}`);
+    if (r.outcome === "fail") for (const t of r.tests.filter((x) => !x.passed)) console.log(`        - ${t.name}: ${t.error}`);
   }
   for (const s of report.skipped) console.log(`  SKIP  ${s.name}  (${s.reason})`);
   const t = report.totals;
-  console.log(`\n${t.passed} passed, ${t.failed} failed, ${t.skipped} skipped of ${t.requests} requests`);
+  for (const name of report.unmatchedExpectFail) console.log(`  Note: --expect-fail "${name}" matched no request`);
+  console.log(
+    `\n${t.passed} passed, ${t.failed} failed, ${t.expectedFailures} expected failures, ${t.skipped} skipped of ${t.requests} requests`,
+  );
   console.log(`Report: ${path.relative(process.cwd(), markdownPath)}`);
   console.log(`        ${path.relative(process.cwd(), jsonPath)}`);
   return t.failed > 0 ? 1 : 0;

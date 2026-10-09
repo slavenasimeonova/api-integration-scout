@@ -84,6 +84,8 @@ export function buildPostmanCollection(analysis: Analysis, id: string = randomUU
 
 export const AUTH_ALTERNATIVES_FOLDER = "Auth alternatives";
 export const CHECK_HOST_FLAG = "[CHECK HOST]";
+/** Item variable naming a documented plan/permission requirement (read by the Newman runner). */
+export const ACCESS_VARIABLE = "scoutRequires";
 
 function authName(auth: Auth): string {
   const p = auth.parameterName;
@@ -151,7 +153,7 @@ function buildAuthAlternative(
     ...method.sources.map((s) => (s.quote ? `Source: ${s.url}\n"${s.quote}"` : `Source: ${s.url}`)),
   ].join("\n");
 
-  return { name: `${authName(method.value)}: ${sample ? `${sample.value.method} ${sample.value.path}` : "GET /"}`, request, event: base.event };
+  return { name: `${authName(method.value)}: ${sample ? `${sample.value.method} ${sample.value.path}` : "GET /"}`, request, event: base.event, ...("variable" in base ? { variable: base.variable } : {}) };
 }
 
 function buildItem(ep: UsableEndpoint, target: EndpointTarget, credentialParams: Set<string>, apiJson: boolean) {
@@ -166,13 +168,18 @@ function buildItem(ep: UsableEndpoint, target: EndpointTarget, credentialParams:
     .map((p) => ({ key: p.name, value: "", description: p.description, ...(p.required ? {} : { disabled: true }) }));
   // Path variables are prefilled only with values from the docs' own example URLs (verified quotes).
   const examples = pathVariableExamples(ep);
-  const pathVars = keyParams
-    .filter((p) => p.in === "path")
-    .map((p) => ({
-      key: p.name,
-      value: examples[p.name] ?? "",
-      description: examples[p.name] ? `${p.description} (example value from the docs)` : p.description,
-    }));
+  // One variable per {placeholder} in the path, even if the model didn't list it as a param
+  // (otherwise Postman sends a literal ":ip").
+  const placeholders = [...new Set([...target.path.matchAll(/\{([^}]+)\}/g)].map((m) => m[1]!))];
+  const pathVars = placeholders.map((name) => {
+    const param = keyParams.find((p) => p.in === "path" && p.name === name);
+    const description = param?.description ?? "Path variable";
+    return {
+      key: name,
+      value: examples[name] ?? "",
+      description: examples[name] ? `${description} (example value from the docs)` : description,
+    };
+  });
   const headerParams = keyParams.filter((p) => p.in === "header").map((p) => ({ key: p.name, value: "", description: p.description }));
   const bodyParams = keyParams.filter((p) => p.in === "body");
 
@@ -194,6 +201,7 @@ function buildItem(ep: UsableEndpoint, target: EndpointTarget, credentialParams:
         ];
 
   const host = ep.hostCheck;
+  const access = ep.value.access;
   const description = [
     ...(host?.status === "ambiguous"
       ? [
@@ -208,6 +216,7 @@ function buildItem(ep: UsableEndpoint, target: EndpointTarget, credentialParams:
     ...(target.kind === "absolute" ? [`Note: this endpoint uses ${target.origin}, not {{baseUrl}}.`] : []),
     ...(host?.status === "corrected" ? [`Host taken from the docs' example URL: "${host.evidence}"`] : []),
     ...(ep.reasoning ? [`Reasoning: ${ep.reasoning}`] : []),
+    ...(access ? ["", `Requires: ${access.requirement} (per docs: "${access.source.quote ?? ""}")`] : []),
     ...(bodyNote.length ? ["", ...bodyNote] : []),
     ...ep.sources.map((s) => `Source: ${s.url}`),
   ].join("\n");
@@ -215,6 +224,19 @@ function buildItem(ep: UsableEndpoint, target: EndpointTarget, credentialParams:
   return {
     name: `${host?.status === "ambiguous" ? `${CHECK_HOST_FLAG} ` : ""}${method} ${path}${ep.status === "inferred" ? " (inferred)" : ""}`,
     event: [testEvent(apiJson || endpointDocumentsJson(ep))],
+    ...(access
+      ? {
+          variable: [
+            {
+              key: ACCESS_VARIABLE,
+              value: access.requirement,
+              type: "string",
+              description:
+                "Set by API Integration Scout: the docs say this endpoint needs this plan or permission. The Newman runner reports a 401/402/403 here as an expected failure.",
+            },
+          ],
+        }
+      : {}),
     request: {
       method,
       header,

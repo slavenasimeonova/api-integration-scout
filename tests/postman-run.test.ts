@@ -93,11 +93,14 @@ describe("planCollection", () => {
       item: [
         { name: "GET /users/{id}", request: { method: "GET", url: { raw: "{{baseUrl}}/users/:id", variable: [{ key: "id", value: "" }] } } },
         { name: "[CHECK HOST] GET /x", request: { method: "GET", url: { raw: "{{baseUrl}}/x" } } },
+        // ":ip" in the path but no variable for it: would be sent literally.
+        { name: "GET /lite/{ip}/{field}", request: { method: "GET", url: { path: ["lite", ":ip", ":field"], variable: [{ key: "field", value: "asn" }] } } },
       ],
     };
     expect(planCollection(c, { allowWrites: false }).plan.map((p) => p.reason)).toEqual([
       "no value for path variable :id",
       "host is unclear in the docs; check it first",
+      "no value for path variable :ip",
     ]);
   });
 });
@@ -106,6 +109,12 @@ describe("scrub", () => {
   it("removes the token and query strings", () => {
     expect(scrub(`GET https://api.x.example/a?token=${TOKEN}&q=1 failed`, TOKEN)).toBe("GET https://api.x.example/a failed");
     expect(scrub(`Bearer ${TOKEN}`, TOKEN)).toBe("Bearer [redacted]");
+    expect(scrub("see https://user:secret@api.x.example/a#frag", TOKEN)).toBe("see https://api.x.example/a");
+  });
+
+  it("keeps path placeholders readable (real IPinfo request name)", () => {
+    expect(scrub("GET https://ipinfo.io/{ip}/json", TOKEN)).toBe("GET https://ipinfo.io/{ip}/json");
+    expect(scrub("GET https://ipinfo.io/{ip}/json?token={{apiKey}}", TOKEN)).toBe("GET https://ipinfo.io/{ip}/json");
   });
 });
 
@@ -163,15 +172,15 @@ describe("runCollection (Newman against a local server)", () => {
 
     expect(seenMethods.every((m) => m.startsWith("GET "))).toBe(true);
     expect(seenAuth.at(-1)).toBe(`Bearer ${TOKEN}`); // the token reached the API via {{apiKey}}
-    expect(report.totals).toEqual({ requests: 5, run: 3, passed: 2, failed: 1, skipped: 2 });
+    expect(report.totals).toEqual({ requests: 5, run: 3, passed: 2, failed: 1, expectedFailures: 0, skipped: 2 });
 
     const byName = Object.fromEntries(report.results.map((r) => [r.name, r]));
-    expect(byName["GET /items/{id}"]).toMatchObject({ status: 200, passed: true });
+    expect(byName["GET /items/{id}"]).toMatchObject({ status: 200, outcome: "pass" });
     expect(byName["GET /items/{id}"]!.tests.map((t) => t.name)).toEqual(["Status is 2xx", "Response time is under 5000 ms", "Response is JSON"]);
     // Plain text is fine: the docs didn't say this endpoint returns JSON.
-    expect(byName["GET /text"]).toMatchObject({ status: 200, passed: true });
+    expect(byName["GET /text"]).toMatchObject({ status: 200, outcome: "pass" });
     expect(byName["GET /text"]!.tests.map((t) => t.name)).not.toContain("Response is JSON");
-    expect(byName["GET /broken"]).toMatchObject({ status: 500, passed: false });
+    expect(byName["GET /broken"]).toMatchObject({ status: 500, outcome: "fail" });
 
     // Nothing secret on disk: no token, no headers, no response bodies.
     for (const file of [markdownPath, jsonPath]) {
@@ -186,7 +195,7 @@ describe("runCollection (Newman against a local server)", () => {
     seenMethods.length = 0;
     const { report } = await run(true);
     expect(seenMethods).toContain("POST /items");
-    expect(report.results.find((r) => r.name === "POST /items")).toMatchObject({ status: 201, passed: true });
+    expect(report.results.find((r) => r.name === "POST /items")).toMatchObject({ status: 201, outcome: "pass" });
     expect(await readdir(path.join(dir, "out-writes"))).toHaveLength(2);
   }, 30_000);
 });

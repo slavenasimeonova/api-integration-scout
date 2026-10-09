@@ -143,7 +143,7 @@ _Reasoning:_ The base URL ends in /v2; no deprecation policy was found.
 ## Pages visited
 
 - https://docs.acmeweather.example/: 795 chars
-- https://docs.acmeweather.example/endpoints: 574 chars
+- https://docs.acmeweather.example/endpoints: 622 chars
 - https://docs.acmeweather.example/rate-limits: 202 chars
 - https://docs.acmeweather.example/webhooks: 307 chars
 

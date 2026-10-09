@@ -14,7 +14,7 @@ Every finding has a status:
 Never present an inference as documented.
 
 ## What to extract
-apiName, summary, baseUrl, auth, authAlternatives, endpoints (the main ones, at most 15, each with method, path relative to the base URL, purpose, key params, and exampleBody only if the docs show an example request body for it, copied verbatim; if the docs show an endpoint on a different host than the base URL, give its full URL as the path, e.g. https://other.example.com/{id}/json), pagination, rateLimits, webhooks, errorFormat, versioning.
+apiName, summary, baseUrl, auth, authAlternatives, endpoints (the main ones, at most 15, each with method, path relative to the base URL, purpose, key params, exampleBody only if the docs show an example request body for it, copied verbatim, and access only if the docs state that it needs a specific plan, tier, scope or permission (with the quote that says so); if the docs show an endpoint on a different host than the base URL, give its full URL as the path, e.g. https://other.example.com/{id}/json), pagination, rateLimits, webhooks, errorFormat, versioning.
 
 Authentication: many APIs accept several methods (e.g. Bearer header, token as a query parameter, HTTP Basic), and different client systems need different ones. Put the primary or recommended method in "auth" and every other method the docs state in "authAlternatives", each with its own verbatim quote. Record the credential's parameter name (e.g. "token", "X-Api-Key") and location. Only list methods the docs actually state; never add one because it is common elsewhere.
 

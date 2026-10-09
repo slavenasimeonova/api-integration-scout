@@ -23,6 +23,7 @@
        <code>next_cursor</code> field. Use <code>limit</code> (max 100) to set the page size.</p>
 
     <h2>POST /alerts</h2>
+    <p>Alerts are available on the Pro plan and above.</p>
     <p>Creates a severe-weather alert subscription. Send a JSON body with
        <code>location_id</code> and <code>callback_url</code>.</p>
     <pre><code>{"location_id": "loc_123", "callback_url": "https://example.com/hooks/acme"}</code></pre>

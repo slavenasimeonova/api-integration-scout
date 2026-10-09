@@ -57,14 +57,26 @@ export function verifyAnalysis(output: AgentOutput, pages: ReadonlyMap<string, S
   result.endpoints = result.endpoints.map((ep, i) => {
     const label = ep.value ? `${ep.value.method} ${ep.value.path}` : `#${i + 1}`;
     const checked = check(`endpoints[${i}] ${label}`, ep);
+    if (!checked.value) return checked;
+    let value = checked.value;
     // An example body is used as-is in Postman, so it must appear on a cited page.
-    const body = checked.value?.exampleBody;
-    if (checked.value && body !== undefined && !exampleOnCitedPage(body, ep.sources, pages)) {
-      const { exampleBody: _dropped, ...value } = checked.value;
+    if (value.exampleBody !== undefined && !exampleOnCitedPage(value.exampleBody, ep.sources, pages)) {
+      const { exampleBody: _dropped, ...rest } = value;
+      value = rest;
       downgrades.push({ field: `endpoints[${i}] ${label} example body`, reason: "example body not found on the cited page" });
-      return { ...checked, value };
     }
-    return checked;
+    // An access restriction makes failures "expected" in test runs, so it must be quoted from the docs.
+    if (value.access) {
+      const result = checkSource(value.access.source, pages);
+      if (result.verified) {
+        value = { ...value, access: { ...value.access, source: result.source } };
+      } else {
+        const { access: _dropped, ...rest } = value;
+        value = rest;
+        downgrades.push({ field: `endpoints[${i}] ${label} access`, reason: `access restriction: ${result.problem}` });
+      }
+    }
+    return value === checked.value ? checked : { ...checked, value };
   });
 
   return { output: result, downgrades };
