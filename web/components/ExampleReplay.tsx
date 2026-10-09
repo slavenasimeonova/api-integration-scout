@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import type { ExampleBundle } from "@/lib/types";
 import { runFigures } from "@/lib/figures";
+import { assetUrl } from "@/lib/site";
 import { Results } from "./Results";
 import { Timeline } from "./Timeline";
 
@@ -18,7 +19,7 @@ export function ExampleReplay({ slug }: { slug: string }) {
 
   useEffect(() => {
     let cancelled = false;
-    fetch(`/examples/${slug}.json`)
+    fetch(assetUrl(`/examples/${slug}.json`))
       .then((res) => (res.ok ? (res.json() as Promise<ExampleBundle>) : Promise.reject(new Error(String(res.status)))))
       .then((b) => !cancelled && setBundle(b))
       .catch(() => !cancelled && setError(true));

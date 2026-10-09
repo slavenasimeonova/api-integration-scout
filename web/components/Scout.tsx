@@ -5,9 +5,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { EXAMPLES } from "@/lib/examples";
 import { runFigures } from "@/lib/figures";
 import { readNdjson } from "@/lib/ndjson";
+import { STATIC_DEMO } from "@/lib/site";
 import type { LimitStatus, ProgressEvent, RunResult, RunStreamLine } from "@/lib/types";
 import { Results } from "./Results";
 import { Timeline } from "./Timeline";
+import { AUTHOR } from "./SiteChrome";
 import styles from "./Scout.module.css";
 
 type Phase = "idle" | "running" | "done" | "failed" | "cancelled";
@@ -43,12 +45,13 @@ export function Scout() {
   }, []);
 
   useEffect(() => {
-    void refreshLimits();
+    if (!STATIC_DEMO) void refreshLimits();
     return () => controller.current?.abort();
   }, [refreshLimits]);
 
   async function start(e: React.FormEvent) {
     e.preventDefault();
+    if (STATIC_DEMO) return;
     const url = normalizeUrl(input);
     if (!url) {
       setError("Enter a full http(s) URL of an API docs page.");
@@ -128,7 +131,7 @@ export function Scout() {
             placeholder="https://docs.example.com/api"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            disabled={running}
+            disabled={running || STATIC_DEMO}
             className={styles.input}
           />
           {running ? (
@@ -136,13 +139,23 @@ export function Scout() {
               Cancel
             </button>
           ) : (
-            <button type="submit" className="btn btn-primary" disabled={!input.trim() || outOfRuns || limits === null}>
+            <button type="submit" className="btn btn-primary" disabled={STATIC_DEMO || !input.trim() || outOfRuns || limits === null}>
               Scout it
             </button>
           )}
         </div>
         <p className="muted small">
-          <LimitsNote limits={limits} />
+          {STATIC_DEMO ? (
+            <>
+              Live runs are disabled in this public demo to control API costs.{" "}
+              <a href={AUTHOR.github} target="_blank" rel="noreferrer noopener">
+                Clone the repo
+              </a>{" "}
+              to run it locally.
+            </>
+          ) : (
+            <LimitsNote limits={limits} />
+          )}
         </p>
         {error && phase === "idle" && <p className="error-box small">{error}</p>}
       </form>

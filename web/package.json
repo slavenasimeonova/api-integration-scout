@@ -7,7 +7,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "build:static": "node scripts/build-static.mjs",
+    "preview:static": "node scripts/serve-static.mjs"
   },
   "dependencies": {
     "mermaid": "12.1.0",
