@@ -1,6 +1,6 @@
 # API Integration Scout
 
-**Live demo:** https://slavenasimeonova.github.io/api-integration-scout/ shows three saved runs (IPinfo, Notion, Postmark) replayed in the browser. Live runs are disabled there to control API costs. Clone the repo to run it locally. Hosting details: [docs/hosting.md](docs/hosting.md).
+**Live demo:** https://slavenasimeonova.github.io/api-integration-scout/ shows three saved runs (IPinfo, Notion, Postmark) replayed in the browser. Live runs are disabled there to control API costs. Clone the repo to run it locally. People with an access code can request a run, which I review, run and publish ([docs/requests.md](docs/requests.md)). Hosting details: [docs/hosting.md](docs/hosting.md).
 
 ## Why I built this
 
@@ -164,6 +164,8 @@ npm run dev
 Worker settings (environment variables): `PORT` (8787), `LIMIT_RUNS_PER_VISITOR` (3), `LIMIT_RUNS_PER_DAY` (10), `LIMIT_USD_PER_DAY` (2), `LIMIT_CONCURRENT_RUNS` (2), `WORKER_SECRET` (if set, every `/api` request needs it in `x-scout-secret`), `CLIENT_IP_HEADER` (the header carrying the client IP behind a trusted proxy) and `VISITOR_SALT`. The limit counters are in memory for now. A persistent store is chosen together with the hosting.
 
 Static demo (examples only, no live runs, no API key): `npm run build:static` in `web/` exports the site to `web/out/`, and `npm run preview:static` serves it locally. GitHub Actions deploys it to GitHub Pages; see [docs/hosting.md](docs/hosting.md).
+
+Request mode (access codes, $0 hosting): a Netlify Function stores requests from people with an access code and notifies me on Telegram; `npm run request:list` and `npm run request:fulfil -- <id>` review, run and publish them. Setup and daily use: [docs/requests.md](docs/requests.md).
 
 ## Verification at work (offline fixture)
 

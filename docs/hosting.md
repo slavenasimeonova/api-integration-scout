@@ -3,6 +3,7 @@
 There are two stages:
 
 - **A. Public static demo (now):** GitHub Pages. It's free, needs no credit card and no new account, and makes no API calls, so it costs nothing. Visitors can open the three saved examples (IPinfo, Notion, Postmark) and watch their replayed timelines. Live runs are disabled.
+- **Request mode (built):** people with an access code request a run; you review, run and publish it. Free (Netlify Function + Telegram). See [requests.md](requests.md).
 - **B. Live runs (later, not built):** Railway, with one service for the worker and the web app. See [part B](#b-later-live-runs-on-railway).
 
 ## A. Static demo on GitHub Pages
