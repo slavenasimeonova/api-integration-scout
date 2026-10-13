@@ -36,9 +36,9 @@ cd C:\Users\slave\projects\api-integration-scout
 2. Netlify reads `netlify.toml`, so you don't need to change any build settings.
 3. Set the **Project name** to `api-scout-requests` (or any free name). The API will be at `https://api-scout-requests.netlify.app`.
 4. Click **Deploy**. The first deploy installs the repo's packages, which takes 1 to 3 minutes.
-5. Check that `https://api-scout-requests.netlify.app/` opens a one-line page that links to the demo.
+5. Check that `https://api-scout-requests.netlify.app/` redirects to the demo on GitHub Pages.
 
-The public site stays on GitHub Pages. Netlify only hosts the API.
+The public site stays on GitHub Pages. Netlify only hosts the API: its root redirects to the demo (`[[redirects]]` in `netlify.toml`), and any other unknown path shows a 404 page that also forwards to the demo. The function paths `/api/requests` and `/api/requests/<id>` aren't redirected.
 
 ### 2. Find your Telegram chat ID
 

@@ -14,3 +14,18 @@
 [functions]
   directory = "netlify/functions"
   node_bundler = "esbuild"
+
+# Visitors to the API's address go to the demo. Only these exact paths are redirected, so the
+# function paths (/api/requests, /api/requests/*) are untouched. force = true is needed because
+# netlify/public/index.html exists. 302, not 301: browsers don't cache it, so it can change later.
+[[redirects]]
+  from = "/"
+  to = "https://slavenasimeonova.github.io/api-integration-scout/"
+  status = 302
+  force = true
+
+[[redirects]]
+  from = "/index.html"
+  to = "https://slavenasimeonova.github.io/api-integration-scout/"
+  status = 302
+  force = true
