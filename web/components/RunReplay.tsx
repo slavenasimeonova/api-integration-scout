@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import type { ExampleBundle } from "@/lib/types";
 import { runFigures } from "@/lib/figures";
-import { assetUrl } from "@/lib/site";
 import { Results } from "./Results";
 import { Timeline } from "./Timeline";
 
@@ -11,22 +10,22 @@ import { Timeline } from "./Timeline";
 const SPEEDUP = 4;
 const MAX_GAP_MS = 1200;
 
-/** Replays a saved run's progress events, then shows its results. */
-export function ExampleReplay({ slug }: { slug: string }) {
+/** Replays a saved run's progress events (a saved example or a published request result), then shows its results. */
+export function RunReplay({ src }: { src: string }) {
   const [bundle, setBundle] = useState<ExampleBundle>();
   const [shown, setShown] = useState(0);
   const [error, setError] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    fetch(assetUrl(`/examples/${slug}.json`))
+    fetch(src)
       .then((res) => (res.ok ? (res.json() as Promise<ExampleBundle>) : Promise.reject(new Error(String(res.status)))))
       .then((b) => !cancelled && setBundle(b))
       .catch(() => !cancelled && setError(true));
     return () => {
       cancelled = true;
     };
-  }, [slug]);
+  }, [src]);
 
   useEffect(() => {
     if (!bundle || shown >= bundle.events.length) return;
@@ -37,7 +36,7 @@ export function ExampleReplay({ slug }: { slug: string }) {
     return () => clearTimeout(id);
   }, [bundle, shown]);
 
-  if (error) return <p className="error-box">Couldn&rsquo;t load this example.</p>;
+  if (error) return <p className="error-box">Couldn&rsquo;t load this run.</p>;
   if (!bundle) return <p className="muted">Loading…</p>;
 
   const done = shown >= bundle.events.length;

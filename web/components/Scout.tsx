@@ -5,7 +5,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { EXAMPLES } from "@/lib/examples";
 import { runFigures } from "@/lib/figures";
 import { readNdjson } from "@/lib/ndjson";
-import { STATIC_DEMO } from "@/lib/site";
+import { REQUEST_API, STATIC_DEMO } from "@/lib/site";
+import { AccessCodeRequest } from "./AccessCodeRequest";
 import type { LimitStatus, ProgressEvent, RunResult, RunStreamLine } from "@/lib/types";
 import { Results } from "./Results";
 import { Timeline } from "./Timeline";
@@ -159,6 +160,12 @@ export function Scout() {
         </p>
         {error && phase === "idle" && <p className="error-box small">{error}</p>}
       </form>
+
+      {STATIC_DEMO && REQUEST_API && (
+        <div style={{ marginTop: "0.8rem" }}>
+          <AccessCodeRequest />
+        </div>
+      )}
 
       <section className={styles.examples} aria-label="Examples">
         <p className="muted small">Or open a saved run: instant, no API call.</p>
