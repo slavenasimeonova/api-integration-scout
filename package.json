@@ -7,6 +7,9 @@
     "postman:run": "node --env-file-if-exists=.env --import tsx src/cli/postman-run.ts",
     "worker:fake": "node --import tsx scripts/fake-worker.ts",
     "build:examples": "node --import tsx scripts/build-examples.ts",
+    "code:new": "node --import tsx scripts/code-new.ts",
+    "request:list": "node --env-file-if-exists=.env --import tsx scripts/request-list.ts",
+    "request:fulfil": "node --env-file-if-exists=.env --import tsx scripts/request-fulfil.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit"
@@ -16,6 +19,7 @@
   "description": "AI agent that analyzes public API docs and produces an integration analysis plus a Postman collection",
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.3.289",
+    "@netlify/blobs": "^11.1.4",
     "ajv": "^8.20.0",
     "ajv-draft-04": "^1.0.0",
     "cheerio": "^1.2.0",

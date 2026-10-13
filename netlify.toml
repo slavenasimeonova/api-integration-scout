@@ -1,0 +1,16 @@
+# Netlify hosts only the request API (netlify/functions); the public site is on GitHub Pages.
+# Guide: docs/requests.md
+
+[build]
+  command = "echo 'Functions only: the public site is on GitHub Pages'"
+  publish = "netlify/public"
+  # Every production deploy costs 15 credits (Free: 300 a month), so build only when the
+  # function's inputs change. A first build or a manual redeploy (same commit) always builds.
+  ignore = "[ \"$CACHED_COMMIT_REF\" != \"$COMMIT_REF\" ] && git diff --quiet $CACHED_COMMIT_REF $COMMIT_REF -- netlify.toml netlify src/access worker/safe-fetch.ts package.json package-lock.json"
+
+[build.environment]
+  NODE_VERSION = "22"
+
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
