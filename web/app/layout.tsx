@@ -11,7 +11,7 @@ export const metadata: Metadata = {
   title: "API Integration Scout",
   description:
     "An agent that reads public API docs and writes an integration analysis where every finding is Documented (with a verified quote), Inferred, or Not found. Built by Slavena Simeonova.",
-  authors: [{ name: "Slavena Simeonova", url: "https://www.linkedin.com/in/slavenasimeonova" }],
+  authors: [{ name: "Slavena Simeonova", url: "https://www.linkedin.com/in/slavena-simeonova-a39868233/" }],
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

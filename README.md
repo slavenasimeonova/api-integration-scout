@@ -310,4 +310,4 @@ The tests use saved HTML fixtures and a scripted stand-in for the Agent SDK (`te
 
 ## Author
 
-Slavena Simeonova · [linkedin.com/in/slavenasimeonova](https://www.linkedin.com/in/slavenasimeonova)
+Slavena Simeonova · [linkedin.com/in/slavena-simeonova-a39868233](https://www.linkedin.com/in/slavena-simeonova-a39868233/)

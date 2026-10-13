@@ -5,7 +5,7 @@ export const AUTHOR = {
   name: "Slavena Simeonova",
   role: "Integration architect, 7 years in enterprise telecom",
   github: "https://github.com/slavenasimeonova/api-integration-scout",
-  linkedin: "https://www.linkedin.com/in/slavenasimeonova",
+  linkedin: "https://www.linkedin.com/in/slavena-simeonova-a39868233/",
 };
 
 function Mark() {
@@ -55,7 +55,7 @@ export function SiteFooter() {
           </a>
           {" · "}
           <a href={AUTHOR.linkedin} target="_blank" rel="noreferrer noopener">
-            linkedin.com/in/slavenasimeonova
+            LinkedIn
           </a>
         </p>
       </div>
