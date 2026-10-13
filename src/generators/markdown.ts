@@ -1,4 +1,4 @@
-import type { Analysis, Auth, Finding, Severity } from "../core/schema.js";
+import type { Analysis, Auth, Finding, PageVisit, Severity } from "../core/schema.js";
 import { authLabel } from "../core/verify.js";
 import type { z } from "zod";
 import { STATUS_LABEL, usableEndpoints } from "./format.js";
@@ -36,6 +36,14 @@ function describeAuth(v: Auth): string[] {
 function section(title: string, f: Finding<unknown>, describe: () => string[]): string[] {
   const body = f.status === "not_found" || f.value === null ? ["Not found in docs."] : describe();
   return [`### ${title}`, "", ...body, "", ...evidence(f), ""];
+}
+
+/** How much of a long page the agent read. Older analyses have no part counts. */
+function partsNote(p: PageVisit): string {
+  if (p.parts && p.parts > 1) {
+    return p.truncated ? ` (read ${p.partsRead ?? 0} of ${p.parts} parts; findings may be incomplete)` : ` (read in ${p.parts} parts)`;
+  }
+  return p.truncated ? " (truncated; findings may be incomplete)" : "";
 }
 
 /** Human-readable integration summary (analysis.md). */
@@ -151,7 +159,7 @@ export function buildMarkdown(a: Analysis): string {
     }),
     "## Pages visited",
     "",
-    ...a.pagesVisited.map((p) => `- ${p.url}: ${p.status === "fetched" ? `${p.textLength} chars${p.lowText ? " (low text, may need JavaScript)" : ""}${p.truncated ? " (truncated; findings may be incomplete)" : ""}` : `failed (${p.error})`}`),
+    ...a.pagesVisited.map((p) => `- ${p.url}: ${p.status === "fetched" ? `${p.textLength} chars${p.lowText ? " (low text, may need JavaScript)" : ""}${partsNote(p)}` : `failed (${p.error})`}`),
     "",
     ...(a.warnings.length ? ["## Warnings", "", ...a.warnings.map((w) => `- ${w}`), ""] : []),
     "## Run",

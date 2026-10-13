@@ -83,14 +83,26 @@ describe("runScout", () => {
       { config: { ...DEFAULT_CONFIG, maxPageChars: 300 } },
     );
     const analysis = await promise;
-    // index.html (580 chars) is over the limit; rate-limits (202 chars) is not.
+    // index.html (795 chars of text, 3 parts) is over the limit; rate-limits (202 chars) is not.
     const truncationWarnings = analysis.warnings.filter((w) => w.startsWith("Page truncated"));
     expect(truncationWarnings).toEqual([
       expect.stringMatching(/^Page truncated: https:\/\/docs\.acmeweather\.example\/ .*findings from this page may be incomplete$/),
     ]);
     expect(analysis.pagesVisited.map((p) => p.truncated)).toEqual([true, false]);
     expect(events.filter((e) => e.step === "page_truncated")).toHaveLength(1);
-    expect(buildMarkdown(analysis)).toContain("(truncated; findings may be incomplete)");
+    expect(buildMarkdown(analysis)).toContain("(read 1 of 3 parts; findings may be incomplete)");
+  });
+
+  it("doesn't flag a long page once every part was read", async () => {
+    const { promise, events } = await run(
+      [{ fetch: ACME_ROOT }, { fetch: ACME_ROOT, part: 2 }, { fetch: ACME_ROOT, part: 3 }, { result: "success", output: ACME_OUTPUT }],
+      { config: { ...DEFAULT_CONFIG, maxPageChars: 300 } },
+    );
+    const analysis = await promise;
+    expect(analysis.warnings.filter((w) => w.startsWith("Page truncated"))).toEqual([]);
+    expect(analysis.pagesVisited).toEqual([expect.objectContaining({ parts: 3, partsRead: 3, truncated: false })]);
+    expect(events.filter((e) => e.step === "page_truncated")).toHaveLength(0);
+    expect(buildMarkdown(analysis)).toContain("(read in 3 parts)");
   });
 
   it("stops when the token budget is exceeded and still reports usage", async () => {

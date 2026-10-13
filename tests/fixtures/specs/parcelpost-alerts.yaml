@@ -1,0 +1,101 @@
+openapi: 3.1.0
+info:
+  title: Parcelpost Alerts API
+  version: "2"
+  description: |
+
+    # Product Info
+
+    Parcelpost Alerts pushes tracking events for subscribed parcels to your webhook.
+    Business rule 1: subscriptions last 14 days, and events are delivered at least once in the order they occur.
+    Business rule 2: subscriptions last 14 days, and events are delivered at least once in the order they occur.
+    Business rule 3: subscriptions last 14 days, and events are delivered at least once in the order they occur.
+    Business rule 4: subscriptions last 14 days, and events are delivered at least once in the order they occur.
+    Business rule 5: subscriptions last 14 days, and events are delivered at least once in the order they occur.
+    Business rule 6: subscriptions last 14 days, and events are delivered at least once in the order they occur.
+    Business rule 7: subscriptions last 14 days, and events are delivered at least once in the order they occur.
+    Business rule 8: subscriptions last 14 days, and events are delivered at least once in the order they occur.
+    Business rule 9: subscriptions last 14 days, and events are delivered at least once in the order they occur.
+    Business rule 10: subscriptions last 14 days, and events are delivered at least once in the order they occur.
+    Business rule 11: subscriptions last 14 days, and events are delivered at least once in the order they occur.
+    Business rule 12: subscriptions last 14 days, and events are delivered at least once in the order they occur.
+    Business rule 13: subscriptions last 14 days, and events are delivered at least once in the order they occur.
+    Business rule 14: subscriptions last 14 days, and events are delivered at least once in the order they occur.
+    Business rule 15: subscriptions last 14 days, and events are delivered at least once in the order they occur.
+    Business rule 16: subscriptions last 14 days, and events are delivered at least once in the order they occur.
+    Business rule 17: subscriptions last 14 days, and events are delivered at least once in the order they occur.
+    Business rule 18: subscriptions last 14 days, and events are delivered at least once in the order they occur.
+    Business rule 19: subscriptions last 14 days, and events are delivered at least once in the order they occur.
+    Business rule 20: subscriptions last 14 days, and events are delivered at least once in the order they occur.
+    Business rule 21: subscriptions last 14 days, and events are delivered at least once in the order they occur.
+    Business rule 22: subscriptions last 14 days, and events are delivered at least once in the order they occur.
+    Business rule 23: subscriptions last 14 days, and events are delivered at least once in the order they occur.
+    Business rule 24: subscriptions last 14 days, and events are delivered at least once in the order they occur.
+    Business rule 25: subscriptions last 14 days, and events are delivered at least once in the order they occur.
+    Business rule 26: subscriptions last 14 days, and events are delivered at least once in the order they occur.
+    Business rule 27: subscriptions last 14 days, and events are delivered at least once in the order they occur.
+    Business rule 28: subscriptions last 14 days, and events are delivered at least once in the order they occur.
+    Business rule 29: subscriptions last 14 days, and events are delivered at least once in the order they occur.
+    Business rule 30: subscriptions last 14 days, and events are delivered at least once in the order they occur.
+servers:
+  - url: https://sandbox.parcelpost.example/api/alerts/{version}
+    description: Sandbox
+  - url: https://api.parcelpost.example/api/alerts/{version}
+    description: Production
+security:
+  - oauth2: []
+paths:
+  /subscription/{type}/package:
+    post:
+      summary: Create subscriptions by tracking number.
+      operationId: subscribePackages
+      parameters:
+        - name: version
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            examples:
+              basic:
+                summary: Standard request
+                value:
+                  trackingNumberList: ["1PP0000000000001"]
+                  destination:
+                    url: https://example.com/hooks/parcel
+                    credentialType: Bearer
+                    credential: secret
+  webhooks:
+  TrackingEvent:
+    post:
+      summary: Tracking Event
+      description: Parcelpost sends this POST to the destination URL for every new tracking event.
+      parameters:
+        - name: x-api-key
+          in: header
+          required: false
+          schema:
+            type: string
+components:
+  securitySchemes:
+    oauth2:
+      type: oauth2
+      flows:
+        clientCredentials:
+          tokenUrl: https://api.parcelpost.example/security/v1/oauth/token
+          scopes: {}
+  schemas:
+    SubscriptionRequest:
+      type: object
+      properties:
+        trackingNumberList:
+          type: array
+    TrackingEventPayload:
+      type: object
+      properties:
+        trackingNumber:
+          type: string
+        activityStatus:
+          type: string

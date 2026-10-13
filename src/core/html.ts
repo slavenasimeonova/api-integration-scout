@@ -77,16 +77,49 @@ function hostOf(url: string): string | null {
   }
 }
 
+const GITHUB_HOSTS = new Set(["github.com", "raw.githubusercontent.com"]);
+
+/** The repository owner of a github.com or raw.githubusercontent.com URL, lowercased ("" for the home page). */
+function githubOwner(url: string): string | null {
+  try {
+    const u = new URL(url);
+    if (!GITHUB_HOSTS.has(u.hostname.toLowerCase().replace(/^www\./, ""))) return null;
+    return (u.pathname.split("/")[1] ?? "").toLowerCase();
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Same site = same host, or one host is a subdomain of the other
  * (docs.stripe.com <-> stripe.com). Sibling subdomains on shared hosts
  * (a.github.io vs b.github.io) are deliberately not treated as the same site.
+ * Docs on GitHub (e.g. github.com/UPS-API/api-documentation): the same owner
+ * on github.com or raw.githubusercontent.com, never another owner's repos.
  */
 export function isSameSite(url: string, rootUrl: string): boolean {
+  const rootOwner = githubOwner(rootUrl);
+  if (rootOwner !== null) return githubOwner(url) === rootOwner;
   const a = hostOf(url);
   const b = hostOf(rootUrl);
   if (!a || !b) return false;
   return a === b || a.endsWith(`.${b}`) || b.endsWith(`.${a}`);
+}
+
+/**
+ * The URL to fetch for a docs link. A GitHub file page ("blob") becomes its raw
+ * file: the blob page's text extraction loses YAML indentation and adds the site's
+ * navigation. Other URLs are returned unchanged.
+ */
+export function fetchableUrl(url: string): string {
+  try {
+    const u = new URL(url);
+    const m = /^\/([^/]+)\/([^/]+)\/blob\/(.+)$/.exec(u.pathname);
+    if (u.hostname.toLowerCase().replace(/^www\./, "") !== "github.com" || !m) return url;
+    return `https://raw.githubusercontent.com/${m[1]}/${m[2]}/${m[3]}`;
+  } catch {
+    return url;
+  }
 }
 
 function collapse(s: string): string {

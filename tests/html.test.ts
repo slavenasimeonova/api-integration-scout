@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { extractPage, isSameSite, normalizeUrl } from "../src/core/html.js";
+import { extractPage, fetchableUrl, isSameSite, normalizeUrl } from "../src/core/html.js";
 import { ACME_ROOT, readFixture } from "./helpers/fixtures.js";
 
 describe("extractPage", () => {
@@ -54,6 +54,36 @@ describe("isSameSite", () => {
     expect(isSameSite("https://twitter.com/acmeweather", ACME_ROOT)).toBe(false);
     expect(isSameSite("https://evil.github.io/", "https://good.github.io/")).toBe(false);
     expect(isSameSite("not a url", ACME_ROOT)).toBe(false);
+  });
+});
+
+describe("docs on GitHub", () => {
+  const root = "https://github.com/UPS-API/api-documentation";
+
+  it("treats the same owner on github.com and raw.githubusercontent.com as one site", () => {
+    expect(isSameSite("https://github.com/UPS-API/api-documentation/blob/main/A.yaml", root)).toBe(true);
+    expect(isSameSite("https://raw.githubusercontent.com/UPS-API/api-documentation/main/A.yaml", root)).toBe(true);
+    expect(isSameSite("https://github.com/ups-api/UPS-SDKs", root)).toBe(true);
+  });
+
+  it("rejects other owners and other GitHub hosts", () => {
+    expect(isSameSite("https://github.com/someone-else/api-documentation", root)).toBe(false);
+    expect(isSameSite("https://raw.githubusercontent.com/someone-else/x/main/A.yaml", root)).toBe(false);
+    expect(isSameSite("https://docs.github.com/en", root)).toBe(false);
+    expect(isSameSite("https://github.com/features", "https://github.com/UPS-API")).toBe(false);
+  });
+
+  it("keeps the subdomain rule for sites that aren't on GitHub", () => {
+    expect(isSameSite("https://docs.github.com/en/rest", "https://docs.github.com/")).toBe(true);
+    expect(isSameSite("https://github.com/stripe/docs", "https://docs.stripe.com/")).toBe(false);
+  });
+
+  it("fetches GitHub file pages as raw files", () => {
+    expect(fetchableUrl("https://github.com/UPS-API/api-documentation/blob/main/UPSTrackAlert.yaml")).toBe(
+      "https://raw.githubusercontent.com/UPS-API/api-documentation/main/UPSTrackAlert.yaml",
+    );
+    expect(fetchableUrl("https://github.com/UPS-API/api-documentation")).toBe("https://github.com/UPS-API/api-documentation");
+    expect(fetchableUrl("https://docs.acmeweather.example/a/b/blob/main/x")).toBe("https://docs.acmeweather.example/a/b/blob/main/x");
   });
 });
 

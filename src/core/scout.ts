@@ -175,6 +175,7 @@ export async function runScout(docsUrl: string, opts: RunScoutOptions = {}): Pro
   const parsed = AgentOutput.safeParse(final.structured_output);
   if (!parsed.success) fail("invalid_output", `Agent output did not match the schema: ${parsed.error.message}`);
 
+  session.reportUnreadParts();
   const { output, downgrades } = verifyAnalysis(parsed.data!, session.pages);
   for (const d of downgrades) {
     emit({ step: "verification_downgrade", detail: `${d.field} downgraded to inferred: ${d.reason}`, field: d.field });
@@ -190,7 +191,7 @@ export async function runScout(docsUrl: string, opts: RunScoutOptions = {}): Pro
     }
     if (visit.truncated) {
       warnings.push(
-        `Page truncated: ${visit.url} (${visit.textLength} chars, first ${config.maxPageChars} sent to the model); findings from this page may be incomplete`,
+        `Page truncated: ${visit.url} (${visit.textLength} chars; the agent read ${visit.partsRead ?? 1} of ${visit.parts ?? 1} parts of ${config.maxPageChars}); findings from this page may be incomplete`,
       );
     }
     if (visit.status === "failed") warnings.push(`Could not fetch ${visit.url}: ${visit.error}`);

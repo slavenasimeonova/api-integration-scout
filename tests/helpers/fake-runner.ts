@@ -6,7 +6,7 @@ export type Usage = { input_tokens: number; output_tokens: number; cache_read_in
 
 /** Scripted stand-in for the Agent SDK. Each step either calls a tool or yields a message. */
 export type FakeStep =
-  | { fetch: string }
+  | { fetch: string; part?: number }
   | { progress: [step: Parameters<Parameters<AgentRunner>[0]["tools"]["reportProgress"]>[0], detail: string] }
   | { assistant: Usage; id?: string }
   | { result: "success"; output: unknown; usage?: Usage; costUsd?: number }
@@ -22,7 +22,7 @@ export function fakeRunner(steps: FakeStep[]): AgentRunner & { calls: Parameters
     calls.push(args);
     for (const step of steps) {
       if (args.options.abortController?.signal.aborted) throw new Error("aborted");
-      if ("fetch" in step) await args.tools.fetchPage(step.fetch);
+      if ("fetch" in step) await args.tools.fetchPage(step.fetch, step.part);
       else if ("progress" in step) args.tools.reportProgress(...step.progress);
       else if ("assistant" in step) {
         yield { type: "assistant", message: { id: step.id ?? `msg_${++n}`, usage: step.assistant, content: [] } } as unknown as SDKMessage;

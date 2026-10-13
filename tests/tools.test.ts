@@ -1,7 +1,9 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { DEFAULT_CONFIG } from "../src/core/config.js";
 import { createEmitter, type ProgressEvent } from "../src/core/events.js";
-import { DocsSession, createScoutMcpServer } from "../src/core/tools.js";
+import type { Fetcher } from "../src/core/fetcher.js";
+import { DocsSession, createScoutMcpServer, splitParts } from "../src/core/tools.js";
 import { ACME_ROOT, createFixtureFetcher } from "./helpers/fixtures.js";
 
 function setup(maxPages = 5) {
@@ -105,7 +107,7 @@ describe("DocsSession.fetchPage", () => {
     expect(events[0]).toMatchObject({ step: "page_skipped", reason: "fetch_error" });
   });
 
-  it("truncates long pages sent to the model but keeps full text for verification", async () => {
+  it("sends long pages in parts, keeps the full text, and reports unread parts at the end", async () => {
     const events: ProgressEvent[] = [];
     const session = new DocsSession(
       ACME_ROOT,
@@ -114,9 +116,12 @@ describe("DocsSession.fetchPage", () => {
       createEmitter((e) => events.push(e)),
     );
     const result = await session.fetchPage("/");
-    expect(result.text).toContain("truncated to 100");
+    expect(result.text).toMatch(/in \d+ parts; this is part 1 \(characters 0-\d+\)\. Unread parts: 2, 3/);
     expect(session.pages.get(ACME_ROOT)!.text.length).toBeGreaterThan(100);
-    expect(session.visits[0]).toMatchObject({ truncated: true });
+    expect(session.visits[0]).toMatchObject({ truncated: true, partsRead: 1 });
+    expect(events.some((e) => e.step === "page_truncated")).toBe(false);
+
+    session.reportUnreadParts();
     expect(events.find((e) => e.step === "page_truncated")).toMatchObject({ url: ACME_ROOT, maxChars: 100 });
   });
 
@@ -133,6 +138,131 @@ describe("reportProgress", () => {
     const { session, events } = setup();
     session.reportProgress("auth_found", "API key in X-Api-Key header");
     expect(events[0]).toMatchObject({ step: "auth_found", detail: "API key in X-Api-Key header" });
+  });
+});
+
+const GH_ROOT = "https://github.com/parcelpost/api-docs";
+const RAW_SPEC = "https://raw.githubusercontent.com/parcelpost/api-docs/main/parcelpost-alerts.yaml";
+const SPEC = readFileSync(new URL("./fixtures/specs/parcelpost-alerts.yaml", import.meta.url), "utf8");
+
+/** A fake GitHub repo page linking to a spec, plus the spec's raw file. */
+function githubFetcher(): Fetcher & { requested: string[] } {
+  const requested: string[] = [];
+  const repoPage = `<html><head><title>parcelpost/api-docs</title></head><body><main>
+    <h1>api-docs</h1><p>OpenAPI specs for the Parcelpost APIs.</p>
+    <a href="/parcelpost/api-docs/blob/main/parcelpost-alerts.yaml">parcelpost-alerts.yaml</a>
+    <a href="https://github.com/someone-else/fork">someone-else/fork</a>
+    <a href="https://docs.github.com/en">GitHub Docs</a>
+  </main></body></html>`;
+  const fetcher = async (url: string) => {
+    requested.push(url);
+    if (url === GH_ROOT) return { finalUrl: url, status: 200, contentType: "text/html", body: repoPage };
+    if (url === RAW_SPEC) return { finalUrl: url, status: 200, contentType: "text/plain; charset=utf-8", body: SPEC };
+    return { finalUrl: url, status: 404, contentType: "text/plain", body: "404: Not Found" };
+  };
+  return Object.assign(fetcher, { requested });
+}
+
+describe("long pages and API specs", () => {
+  function ghSetup(maxPages = 10) {
+    const events: ProgressEvent[] = [];
+    const fetcher = githubFetcher();
+    const config = { ...DEFAULT_CONFIG, maxPages, maxPageChars: 2000 };
+    const session = new DocsSession(GH_ROOT, fetcher, config, createEmitter((e) => events.push(e)));
+    return { session, fetcher, events };
+  }
+
+  it("lists GitHub file links as raw files, and only the same owner's", async () => {
+    const { session } = ghSetup();
+    const result = await session.fetchPage(GH_ROOT);
+    expect(result.text).toContain(`- parcelpost-alerts.yaml: ${RAW_SPEC}`);
+    expect(result.text).not.toContain("https://github.com/someone-else/fork");
+    expect(result.text).not.toContain("https://docs.github.com/en");
+  });
+
+  it("fetches a GitHub blob link as its raw file and starts long specs with an outline", async () => {
+    const { session, fetcher, events } = ghSetup();
+    const blob = "https://github.com/parcelpost/api-docs/blob/main/parcelpost-alerts.yaml";
+    const result = await session.fetchPage(blob);
+
+    expect(fetcher.requested).toEqual([RAW_SPEC]);
+    expect(result.text).toContain("in 3 parts; this is part 1");
+    expect(result.text).toContain("Unread parts: 2, 3");
+    expect(result.text).toContain("SPEC OUTLINE");
+    expect(result.text).toMatch(/- POST \/subscription\/\{type\}\/package: Create subscriptions by tracking number\. \(part [23]\)/);
+    expect(result.text).toMatch(/- POST TrackingEvent: Tracking Event \(part 3\)/);
+    // Quotes are verified against the full text, under the URL the agent gave and the one fetched.
+    expect(session.pages.get(blob)?.text).toBe(SPEC.trim());
+    expect(session.pages.get(RAW_SPEC)?.text).toBe(SPEC.trim());
+    expect(session.visits[0]).toMatchObject({ url: RAW_SPEC, parts: 3, partsRead: 1, truncated: true });
+    expect(events.find((e) => e.step === "page_fetched")?.detail).toMatch(/, part 1 of 3 \(1\/10\)$/);
+  });
+
+  it("serves later parts from the first fetch, each taking a page slot", async () => {
+    const { session, fetcher, events } = ghSetup();
+    await session.fetchPage(RAW_SPEC);
+    const part3 = await session.fetchPage(RAW_SPEC, 3);
+
+    expect(fetcher.requested).toEqual([RAW_SPEC]);
+    expect(part3.text).toContain("this is part 3");
+    expect(part3.text).toContain("Unread parts: 2.");
+    expect(part3.text).toContain("TrackingEventPayload");
+    expect(part3.text).not.toContain("SPEC OUTLINE");
+    expect(part3.text).not.toContain("Same-site links");
+    expect(part3.text).toContain("Pages fetched: 2/10");
+    expect(events.filter((e) => e.step === "page_fetched").map((e) => e.detail)).toEqual([
+      `Fetched ${RAW_SPEC}, part 1 of 3 (1/10)`,
+      `Fetched ${RAW_SPEC}, part 3 of 3 (2/10)`,
+    ]);
+
+    await session.fetchPage(RAW_SPEC, 2);
+    expect(session.visits[0]).toMatchObject({ partsRead: 3, truncated: false });
+    session.reportUnreadParts();
+    expect(events.some((e) => e.step === "page_truncated")).toBe(false);
+  });
+
+  it("does not resend a part or invent one", async () => {
+    const { session } = ghSetup();
+    await session.fetchPage(RAW_SPEC, 2);
+    const again = await session.fetchPage(RAW_SPEC, 2);
+    expect(again).toMatchObject({ isError: false, text: expect.stringContaining("Already fetched part 2 of") });
+    expect(await session.fetchPage(RAW_SPEC, 9)).toMatchObject({ isError: true, text: expect.stringContaining("has 3 part(s)") });
+    expect(await session.fetchPage(RAW_SPEC, 0)).toMatchObject({ isError: true });
+    expect(session.pagesFetched).toBe(1);
+  });
+
+  it("fetches a page once when parts are requested in parallel", async () => {
+    const { session, fetcher } = ghSetup();
+    const results = await Promise.all([1, 2, 3].map((part) => session.fetchPage(RAW_SPEC, part)));
+    expect(fetcher.requested).toEqual([RAW_SPEC]);
+    expect(results.map((r) => /this is part (\d)/.exec(r.text)?.[1])).toEqual(["1", "2", "3"]);
+    expect(session.pagesFetched).toBe(3);
+  });
+
+  it("counts parts toward the page limit", async () => {
+    const { session } = ghSetup(2);
+    await session.fetchPage(RAW_SPEC);
+    await session.fetchPage(RAW_SPEC, 2);
+    const third = await session.fetchPage(RAW_SPEC, 3);
+    expect(third).toMatchObject({ isError: true, text: expect.stringContaining("Page limit of 2 reached") });
+    expect(session.visits[0]).toMatchObject({ partsRead: 2, truncated: true });
+  });
+});
+
+describe("splitParts", () => {
+  it("splits at line breaks into parts no longer than the maximum, losing nothing", () => {
+    const text = Array.from({ length: 40 }, (_, i) => `line ${i} ${"x".repeat(i % 7)}`).join("\n");
+    const parts = splitParts(text, 50);
+    expect(parts.map(([a, b]) => text.slice(a, b)).join("")).toBe(text);
+    for (const [a, b] of parts) {
+      expect(b - a).toBeLessThanOrEqual(50);
+      if (b < text.length) expect(text[b - 1]).toBe("\n");
+    }
+  });
+
+  it("cuts a line longer than the maximum, and keeps short text whole", () => {
+    expect(splitParts("a".repeat(25), 10)).toEqual([[0, 10], [10, 20], [20, 25]]);
+    expect(splitParts("short", 10)).toEqual([[0, 5]]);
   });
 });
 

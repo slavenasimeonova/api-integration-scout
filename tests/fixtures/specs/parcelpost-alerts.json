@@ -1,0 +1,17 @@
+{
+  "openapi": "3.0.3",
+  "info": { "title": "Parcelpost Alerts API", "version": "2" },
+  "servers": [{ "url": "https://sandbox.parcelpost.example/v2" }, { "url": "https://api.parcelpost.example/v2" }],
+  "paths": {
+    "/subscriptions": {
+      "get": { "summary": "List subscriptions" },
+      "post": { "summary": "Create a subscription" },
+      "parameters": []
+    }
+  },
+  "webhooks": { "trackingEvent": { "post": { "summary": "Tracking event" } } },
+  "components": {
+    "securitySchemes": { "oauth2": { "type": "oauth2" } },
+    "schemas": { "Subscription": { "type": "object" }, "TrackingEvent": { "type": "object" } }
+  }
+}
