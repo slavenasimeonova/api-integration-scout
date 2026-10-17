@@ -99,3 +99,6 @@ components:
           type: string
         activityStatus:
           type: string
+      example:
+        trackingNumber: "1PP0000000000001"
+        activityStatus: Delivered

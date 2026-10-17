@@ -39,6 +39,14 @@ export const AuthValue = z.object({
     .string()
     .optional()
     .describe("Header or query parameter carrying the credential, e.g. Authorization or appid"),
+  tokenUrl: z
+    .string()
+    .optional()
+    .describe("OAuth 2.0 only: the token endpoint's full URL as the docs state it (it must appear in this finding's quote)"),
+  grantType: z
+    .enum(["client_credentials", "authorization_code", "other"])
+    .optional()
+    .describe("OAuth 2.0 only: the grant (flow) the docs describe"),
   description: z.string(),
 });
 
@@ -61,7 +69,35 @@ export const WebhookValue = z.object({
     .string()
     .optional()
     .describe("How payloads are signed and verified, if documented"),
+  examplePayload: z
+    .string()
+    .optional()
+    .describe(
+      "An example webhook payload from the docs: verbatim, or the JSON form of an API spec's YAML example with keys and values exactly as in the spec. Omit if the docs show none; never write one yourself.",
+    ),
+  payloadFields: z
+    .array(z.object({ name: z.string(), type: z.string().optional(), description: z.string() }))
+    .optional()
+    .describe("The payload fields the docs describe (e.g. from the spec's schema), at most 25"),
   description: z.string(),
+});
+
+/** A server or environment the docs list, e.g. sandbox and production. */
+export const EnvironmentValue = z.object({
+  name: z.string().describe("The docs' name for it, e.g. 'Sandbox', 'Production', 'CIE (test)'"),
+  url: z.string().describe("Its base URL exactly as the docs state it (it must appear in this finding's quote)"),
+});
+
+/** One step of the integration flow, in order. */
+export const FlowStepValue = z.object({
+  action: z.string().describe("Short description, e.g. 'Get an OAuth access token' or 'UPS posts a tracking event'"),
+  direction: z
+    .enum(["app_to_api", "api_to_app", "api_to_webhook"])
+    .describe("Who calls whom: your app calls the API, the API answers, or the API calls your webhook endpoint"),
+  endpoint: z
+    .string()
+    .optional()
+    .describe("'METHOD path' of the endpoint used, exactly as in endpoints, if any"),
 });
 
 export const ErrorFormatValue = z.object({
@@ -95,8 +131,12 @@ export const EndpointValue = z.object({
     .string()
     .optional()
     .describe(
-      "Example request body copied verbatim from the docs (e.g. the JSON in a curl -d example). Omit unless the docs show one for this endpoint; never write one yourself.",
+      "Example request body from the docs: verbatim (e.g. the JSON in a curl -d example), or the JSON form of an API spec's YAML example with keys and values exactly as in the spec. Omit unless the docs show one for this endpoint; never write one yourself.",
     ),
+  exampleBodyFrom: z
+    .enum(["verbatim", "converted"])
+    .optional()
+    .describe("Leave out: set by Scout when it verifies the example body (verbatim = same words in order, converted = rewritten)."),
   access: z
     .object({
       requirement: z.string().describe("Short statement of what is needed, e.g. 'Core, Plus or Max plan' or 'admin scope'"),
@@ -135,6 +175,14 @@ export const AgentOutput = z.object({
   versioning: finding(VersioningValue),
   risks: z.array(AgentRisk),
   openQuestions: z.array(z.string()),
+  environments: z
+    .array(finding(EnvironmentValue))
+    .optional()
+    .describe("Every server or environment the docs list (e.g. sandbox/test and production), each with its own quote. Omit if the docs list only one base URL."),
+  flow: z
+    .array(finding(FlowStepValue))
+    .optional()
+    .describe("Goal mode: the integration's steps in order (token, requests, webhook delivery). Omit without a goal."),
   pagesConsidered: z
     .array(
       z.object({
@@ -161,6 +209,8 @@ export type Webhook = z.infer<typeof WebhookValue>;
 export type ErrorFormat = z.infer<typeof ErrorFormatValue>;
 export type Versioning = z.infer<typeof VersioningValue>;
 export type Endpoint = z.infer<typeof EndpointValue>;
+export type Environment = z.infer<typeof EnvironmentValue>;
+export type FlowStep = z.infer<typeof FlowStepValue>;
 
 export type RiskOrigin = "agent" | "verification" | "fetch";
 

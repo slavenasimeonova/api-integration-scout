@@ -1,4 +1,4 @@
-import type { Analysis, Endpoint, Finding } from "../core/schema.js";
+import type { Analysis, Endpoint, Finding, FlowStep } from "../core/schema.js";
 import { usableEndpoints } from "./format.js";
 
 /** Mermaid treats ; and # specially and messages must stay on one line. */
@@ -15,8 +15,33 @@ function call(ep: Finding<Endpoint> & { value: Endpoint }): string {
   return `${ep.value.method} ${ep.value.path}`;
 }
 
+/**
+ * Goal mode: the diagram follows the agent's verified flow steps in order.
+ * Inferred steps are marked; a webhook receiver appears only if a step uses it.
+ */
+function flowDiagram(analysis: Analysis, steps: (Finding<FlowStep> & { value: FlowStep })[]): string {
+  const hook = steps.some((s) => s.value.direction === "api_to_webhook");
+  const lines = [
+    "sequenceDiagram",
+    "  autonumber",
+    "  participant App as Your app",
+    `  participant API as ${text(analysis.apiName, 40)} API`,
+    ...(hook ? ["  participant Hook as Your webhook endpoint"] : []),
+  ];
+  for (const s of steps) {
+    const label = `${text(s.value.action, 70)}${s.value.endpoint ? ` (${text(s.value.endpoint, 50)})` : ""}${tag(s)}`;
+    if (s.value.direction === "app_to_api") lines.push(`  App->>API: ${label}`);
+    else if (s.value.direction === "api_to_app") lines.push(`  API-->>App: ${label}`);
+    else lines.push(`  API->>Hook: ${label}`);
+  }
+  if (analysis.auth.status === "not_found") lines.push("  Note over App,API: Auth not found in docs");
+  return lines.join("\n") + "\n";
+}
+
 /** Sequence diagram of the main integration flow, built only from what was found. */
 export function buildSequenceDiagram(analysis: Analysis): string {
+  const steps = (analysis.flow ?? []).filter((s): s is Finding<FlowStep> & { value: FlowStep } => s.status !== "not_found" && s.value !== null);
+  if (steps.length) return flowDiagram(analysis, steps);
   const endpoints = usableEndpoints(analysis);
   const auth = analysis.auth.status !== "not_found" ? analysis.auth.value : null;
   const credential = auth?.parameterName ?? (auth?.type === "bearer" || auth?.type === "oauth2" ? "Authorization: Bearer" : "credentials");

@@ -2,6 +2,7 @@ import type { Analysis, Auth, Finding, PageVisit, Severity } from "../core/schem
 import { authLabel } from "../core/verify.js";
 import type { z } from "zod";
 import { STATUS_LABEL, usableEndpoints } from "./format.js";
+import { buildExampleRequests } from "./requests.js";
 
 type Sev = z.infer<typeof Severity>;
 const SEVERITY_ORDER: Record<Sev, number> = { high: 0, medium: 1, low: 2 };
@@ -46,7 +47,66 @@ function partsNote(p: PageVisit): string {
   return p.truncated ? " (truncated; findings may be incomplete)" : "";
 }
 
-const READ_LABEL = { read: "read", partly: "partly read", failed: "failed", not_read: "not read" } as const;
+const DIRECTION_LABEL = { app_to_api: "Your app → API", api_to_app: "API → your app", api_to_webhook: "API → your webhook" } as const;
+
+/** Goal mode: the integration's steps in order, each with its evidence status. */
+function flowSection(a: Analysis): string[] {
+  const steps = (a.flow ?? []).filter((s) => s.status !== "not_found" && s.value);
+  if (!steps.length) return [];
+  return [
+    "## Integration flow",
+    "",
+    ...steps.map((s, i) => {
+      const v = s.value!;
+      return `${i + 1}. **${cell(v.action)}** (${DIRECTION_LABEL[v.direction]}${v.endpoint ? `, \`${cell(v.endpoint)}\`` : ""}). ${STATUS_LABEL[s.status]}${s.sources.length ? `: ${sourcesInline(s)}` : ""}`;
+    }),
+    "",
+    "The diagram is in `sequence.mmd`.",
+    "",
+  ];
+}
+
+/** Servers the docs list. Postman's baseUrl is left for the user to choose when there are several. */
+function environmentsSection(a: Analysis): string[] {
+  const envs = (a.environments ?? []).filter((e) => e.status !== "not_found" && e.value);
+  if (!envs.length) return [];
+  return [
+    "## Environments",
+    "",
+    "The docs list these servers. Pick one yourself; the Postman `baseUrl` variable lists them as options.",
+    "",
+    "| Name | Base URL | Status | Source |",
+    "| --- | --- | --- | --- |",
+    ...envs.map((e) => `| ${cell(e.value!.name)} | \`${cell(e.value!.url)}\` | ${STATUS_LABEL[e.status]} | ${sourcesInline(e)} |`),
+    "",
+  ];
+}
+
+/** Goal mode: one curl command per endpoint, with {{variables}} for the base URL and credentials. */
+function exampleRequestsSection(a: Analysis): string[] {
+  const requests = buildExampleRequests(a);
+  if (!requests.length) return [];
+  return [
+    "## Example requests",
+    "",
+    "Built from the analysis. `{{baseUrl}}` and `{{apiKey}}` are the same variables as in the Postman collection; fill them in yourself. Bodies appear only when the docs show one. Commands are for bash; in PowerShell, run `curl.exe` and adjust the quoting.",
+    "",
+    ...requests.flatMap((r) => [
+      `### ${cell(r.title)}`,
+      "",
+      r.purpose,
+      ...(r.placeholders.length ? ["", `Replace: ${r.placeholders.map((p) => `\`{${p}}\``).join(", ")}.`] : []),
+      ...(r.bodyFrom === "converted" ? ["", "The body is the docs' example rewritten as JSON (in a different order or form); every key and value was checked against the page."] : []),
+      "",
+      "```bash",
+      r.curl,
+      "```",
+      "",
+    ]),
+  ];
+}
+
+const READ_LABEL ={ read: "read", partly: "partly read", failed: "failed", not_read: "not read" } as const;
 
 /** Goal mode: which pages were considered, how they scored, and why they were (not) read. */
 function discoverySection(a: Analysis): string[] {
@@ -110,6 +170,9 @@ export function buildMarkdown(a: Analysis): string {
     ...glance.map(([area, f, v]) => `| ${area} | ${cell(f.status === "not_found" ? "—" : v)} | ${STATUS_LABEL[f.status]} | ${sourcesInline(f)} |`),
     `| Endpoints | ${endpoints.length} found | ${endpoints.filter((e) => e.status === "documented").length} documented, ${endpoints.filter((e) => e.status === "inferred").length} inferred | — |`,
     "",
+    ...flowSection(a),
+    ...environmentsSection(a),
+    ...(a.goal ? exampleRequestsSection(a) : []),
     "## Risks",
     "",
     ...(risks.length
@@ -174,6 +237,17 @@ export function buildMarkdown(a: Analysis): string {
         `- Events: ${v.events.map((e) => `\`${e}\``).join(", ") || "—"}`,
         `- Signature verification: ${v.signatureVerification ?? "not described"}`,
         `- ${v.description}`,
+        ...(v.payloadFields?.length
+          ? [
+              "",
+              "Payload fields:",
+              "",
+              "| Field | Type | Description |",
+              "| --- | --- | --- |",
+              ...v.payloadFields.slice(0, 25).map((p) => `| \`${cell(p.name)}\` | ${cell(p.type ?? "—")} | ${cell(p.description)} |`),
+            ]
+          : []),
+        ...(v.examplePayload ? ["", "Example payload (from the docs):", "", "```", v.examplePayload, "```"] : []),
       ];
     }),
     ...section("Error format", a.errorFormat, () => {

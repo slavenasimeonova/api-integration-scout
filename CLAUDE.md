@@ -87,6 +87,14 @@ examples/ipinfo/ Real run output (regenerated offline with the current host chec
     - **Report:** `analysis.discovery` holds the pages read, the top 25 unread candidates, and the agent's `pagesConsidered` reasons. Reasons for URLs that were never read or seen are dropped with a warning.
     - **Output:** goal runs write to `outputs/<api>--<goal words>/`. Without a goal, nothing changes: no `goal`/`discovery` fields and the same prompts.
     - The goal sits inside `<<<GOAL ... GOAL>>>`, and `GOAL_INSTRUCTIONS` say it can't change the rules. In request mode the goal comes from a visitor.
+  - Step 3: the output is scoped to the goal. These are all optional fields, so old analyses and the committed examples are unchanged.
+    - **`environments`:** a documented environment's URL must itself be on the cited page, or it is downgraded.
+    - **`flow`** (goal mode): ordered steps with a direction (app_to_api / api_to_app / api_to_webhook). A step's `endpoint` is dropped unless it matches a listed endpoint.
+    - **Webhook payloads:** `webhooks.examplePayload` and `payloadFields`.
+    - **OAuth:** `auth.tokenUrl` and `grantType`. The token URL must be on a cited page.
+    - **Example checks:** `exampleBody` and `examplePayload` may be the JSON form of a spec's YAML example. `jsonExampleMatchesPage` requires every key and string or number value on the page. `exampleBodyFrom` is set by code, never taken from the model: "verbatim" means the same words in the same order (punctuation ignored, so in-order JSON of a YAML example counts), "converted" means the same keys and values in another order.
+    - **Document:** "Integration flow", "Environments" and, in goal mode only, "Example requests" (curl from `generators/requests.ts`, `{{baseUrl}}`/`{{apiKey}}` only, bash quoting). `sequence.mmd` follows `flow` when present.
+    - `tests/worker-server.test.ts`'s first test has a 20 s timeout: it timed out at 5 s when every test file started in parallel.
   - Step 1 is done: long pages are no longer cut off.
   - `fetch_page(url, part)` serves pages in parts of `maxPageChars`, split at line breaks (`splitParts`). Each part takes one slot of the page limit. A page counts as truncated only if some parts were never read; `reportUnreadParts()` emits `page_truncated` once the agent finishes.
   - OpenAPI/Swagger specs (YAML or JSON) start with an outline built in code (`spec-outline.ts`, no YAML parser) that names the part holding each path, webhook, security scheme and schema.

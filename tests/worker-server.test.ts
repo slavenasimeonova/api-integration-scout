@@ -52,7 +52,9 @@ async function lines(res: Response): Promise<RunStreamLine[]> {
 }
 
 describe("worker server", () => {
-  it("streams progress events as NDJSON, then the analysis and output files", async () => {
+  // The first full run in this file also compiles the Postman schema validator; with every test
+  // file starting in parallel on Windows that can take longer than the default 5 s.
+  it("streams progress events as NDJSON, then the analysis and output files", { timeout: 20_000 }, async () => {
     const { post, logs, base } = await start();
     const res = await post(ACME_ROOT);
     expect(res.status).toBe(200);

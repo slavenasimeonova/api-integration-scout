@@ -1,11 +1,9 @@
-import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { DEFAULT_CONFIG } from "../src/core/config.js";
 import { createEmitter, type ProgressEvent } from "../src/core/events.js";
-import type { Fetcher } from "../src/core/fetcher.js";
 import { goalTerms } from "../src/core/relevance.js";
 import { DocsSession, createScoutMcpServer, splitParts } from "../src/core/tools.js";
-import { ACME_ROOT, createFixtureFetcher } from "./helpers/fixtures.js";
+import { ACME_ROOT, createFixtureFetcher, GH_ROOT, githubFetcher, RAW_SPEC, SPEC } from "./helpers/fixtures.js";
 
 function setup(maxPages = 5) {
   const events: ProgressEvent[] = [];
@@ -141,28 +139,6 @@ describe("reportProgress", () => {
     expect(events[0]).toMatchObject({ step: "auth_found", detail: "API key in X-Api-Key header" });
   });
 });
-
-const GH_ROOT = "https://github.com/parcelpost/api-docs";
-const RAW_SPEC = "https://raw.githubusercontent.com/parcelpost/api-docs/main/parcelpost-alerts.yaml";
-const SPEC = readFileSync(new URL("./fixtures/specs/parcelpost-alerts.yaml", import.meta.url), "utf8");
-
-/** A fake GitHub repo page linking to a spec, plus the spec's raw file. */
-function githubFetcher(): Fetcher & { requested: string[] } {
-  const requested: string[] = [];
-  const repoPage = `<html><head><title>parcelpost/api-docs</title></head><body><main>
-    <h1>api-docs</h1><p>OpenAPI specs for the Parcelpost APIs.</p>
-    <a href="/parcelpost/api-docs/blob/main/parcelpost-alerts.yaml">parcelpost-alerts.yaml</a>
-    <a href="https://github.com/someone-else/fork">someone-else/fork</a>
-    <a href="https://docs.github.com/en">GitHub Docs</a>
-  </main></body></html>`;
-  const fetcher = async (url: string) => {
-    requested.push(url);
-    if (url === GH_ROOT) return { finalUrl: url, status: 200, contentType: "text/html", body: repoPage };
-    if (url === RAW_SPEC) return { finalUrl: url, status: 200, contentType: "text/plain; charset=utf-8", body: SPEC };
-    return { finalUrl: url, status: 404, contentType: "text/plain", body: "404: Not Found" };
-  };
-  return Object.assign(fetcher, { requested });
-}
 
 describe("long pages and API specs", () => {
   function ghSetup(maxPages = 10) {
