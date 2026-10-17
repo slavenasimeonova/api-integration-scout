@@ -3,6 +3,7 @@ import path from "node:path";
 import { parseArgs } from "node:util";
 import { loadConfig, runScout, ScoutError, type ProgressEvent, type RunStats, type ScoutConfig } from "../core/index.js";
 import { buildOutputs } from "../generators/index.js";
+import { describePush, pushOutputDir } from "../postman/push-dir.js";
 
 const USAGE = `Usage: npm run scout -- <docs-url> [options]
 
@@ -12,6 +13,8 @@ Options:
   --max-pages <n>   Pages, or parts of long pages, to read (default 15, env SCOUT_MAX_PAGES)
   --model <id>      Model id (default claude-sonnet-5-5, env SCOUT_MODEL)
   --out <dir>       Output directory (default outputs)
+  --postman-push    Also push the collection and an empty environment to your Postman
+                    workspace (POSTMAN_API_KEY in .env; reruns update the same ones)
   --json            Print progress events as JSON lines
   -h, --help        Show this help
 
@@ -27,6 +30,7 @@ function parseCli(argv: string[]) {
       model: { type: "string" },
       out: { type: "string", default: "outputs" },
       json: { type: "boolean", default: false },
+      "postman-push": { type: "boolean", default: false },
       help: { type: "boolean", short: "h", default: false },
     },
   });
@@ -37,7 +41,7 @@ function parseCli(argv: string[]) {
     overrides.maxPages = n;
   }
   if (values.model) overrides.model = values.model;
-  return { url: positionals[0], goal: values.goal, help: values.help, outDir: values.out, json: values.json, overrides };
+  return { url: positionals[0], goal: values.goal, push: values["postman-push"], help: values.help, outDir: values.out, json: values.json, overrides };
 }
 
 const MARKERS: Partial<Record<ProgressEvent["step"], string>> = {
@@ -100,6 +104,11 @@ async function main(): Promise<number> {
     console.log(USAGE);
     return cli.help ? 0 : 1;
   }
+  // Checked before the paid run, so a missing Postman key never wastes one.
+  if (cli.push && !process.env.POSTMAN_API_KEY) {
+    console.error("--postman-push needs POSTMAN_API_KEY in .env (Postman > Settings > API keys).");
+    return 1;
+  }
   if (!process.env.ANTHROPIC_API_KEY) {
     console.error("ANTHROPIC_API_KEY is not set. Add it to the .env file in the project folder (see .env.example).");
     return 1;
@@ -146,7 +155,18 @@ async function main(): Promise<number> {
     if (!postmanValidation.valid) {
       console.error("\npostman_collection.json was NOT saved: it failed Postman v2.1 schema validation:");
       for (const e of postmanValidation.errors) console.error(`  - ${e}`);
+      if (cli.push) console.error("Nothing was pushed to Postman.");
       return 2;
+    }
+    if (cli.push) {
+      console.log("");
+      try {
+        for (const line of describePush(await pushOutputDir(dir, process.env))) console.log(line);
+      } catch (err) {
+        // The analysis is saved; only the push failed, and it can be retried without a paid run.
+        console.error(`${(err as Error).message}\nThe files are saved; retry with: npm.cmd run postman:push -- "${dir}"`);
+        return 3;
+      }
     }
     return 0;
   } catch (err) {

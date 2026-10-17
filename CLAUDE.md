@@ -102,6 +102,19 @@ examples/ipinfo/ Real run output (regenerated offline with the current host chec
     - **Webhook test:** with a verified `examplePayload`, a "Webhook (test your receiver)" folder posts it to `{{webhookUrl}}`. `postman:run` never sends it, even with `--allow-writes`.
     - **Runner:** Newman can't run the OAuth helper, so `planCollection` swaps it for bearer `{{apiKey}}` (TARGET_API_TOKEN = an access token) and the report adds a note.
     - **Unchanged without a goal:** goal runs name the collection and environment after the goal. Trivial variables have no description, so old collections are byte-identical.
+  - Step 5: pushing to Postman (`src/postman/push.ts`, `push-dir.ts`).
+    - **Commands:** `npm run scout -- <url> --goal "..." --postman-push`, or `npm run postman:push -- outputs/<folder>` to push an existing result with no paid run. The scout CLI checks `POSTMAN_API_KEY` before the paid run. If the push fails after the run, the files are kept and the CLI exits with code 3.
+    - **API:** `https://api.postman.com` with the `X-Api-Key` header. `POST /collections?workspace=` and `/environments?workspace=` create; `PUT /collections/{uid}` and `/environments/{uid}` replace the whole item. `workspace` is optional, and without it Postman uses the oldest personal workspace. `info._postman_id` is never sent, because Postman rejects copied ids. (Checked against learning.postman.com, 2026-10-17.)
+    - **Reruns:** `postman-sync.json` (ids only) makes reruns update the same items. A 404 (deleted in Postman) creates new ones, and so does a different `POSTMAN_WORKSPACE_ID`.
+    - **Credential check:** `checkNoCredentials` runs before any request and refuses to push when:
+      - a secret-type environment value isn't empty
+      - an environment value isn't empty and isn't an http(s) URL
+      - an auth field (token, password, clientSecret, an API key value) isn't a `{{variable}}`
+      - a vendor-prefixed key appears (sk-ant-, PMAK-, AKIA except AWS's EXAMPLE key, gh*_, private keys)
+      - any exact value of `POSTMAN_API_KEY`, `ANTHROPIC_API_KEY`, `TARGET_API_TOKEN` or `NETLIFY_AUTH_TOKEN` appears
+
+      Generic "Bearer xyz" and JWT shapes are deliberately allowed, because docs quote placeholder tokens like those.
+    - **Unconfirmed:** the links printed (`https://go.postman.co/collection/<uid>`, `/environment/<uid>`) haven't been tested against a real account yet. The user's first real push will check them.
   - Step 1 is done: long pages are no longer cut off.
   - `fetch_page(url, part)` serves pages in parts of `maxPageChars`, split at line breaks (`splitParts`). Each part takes one slot of the page limit. A page counts as truncated only if some parts were never read; `reportUnreadParts()` emits `page_truncated` once the agent finishes.
   - OpenAPI/Swagger specs (YAML or JSON) start with an outline built in code (`spec-outline.ts`, no YAML parser) that names the part holding each path, webhook, security scheme and schema.
