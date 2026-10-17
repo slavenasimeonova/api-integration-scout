@@ -98,6 +98,7 @@ async function main(): Promise<number> {
   }
   for (const s of report.skipped) console.log(`  SKIP  ${s.name}  (${s.reason})`);
   for (const name of report.unmatchedExpectFail) console.log(`  Note: --expect-fail "${name}" matched no request`);
+  for (const note of report.notes ?? []) console.log(`  Note: ${note}`);
   console.log(`\n${summaryLine(report.totals)}`);
   console.log(`Report: ${path.relative(process.cwd(), markdownPath)}`);
   console.log(`        ${path.relative(process.cwd(), jsonPath)}`);

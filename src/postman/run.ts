@@ -51,6 +51,8 @@ export type RunReport = {
   skipped: PlannedRequest[];
   /** --expect-fail names that matched no request in the collection. */
   unmatchedExpectFail: string[];
+  /** Notes about how the collection was run, e.g. the OAuth helper replaced by TARGET_API_TOKEN. */
+  notes?: string[];
 };
 
 /** Statuses that mean "not allowed for this plan or credential". Anything else on a gated request is a real failure. */
@@ -65,6 +67,9 @@ function expectedReason(planned: PlannedRequest | undefined): string | undefined
 export type RunOutcome = { report: RunReport; jsonPath: string; markdownPath: string };
 
 const REDACTED = "[redacted]";
+
+export const OAUTH_HELPER_NOTE =
+  "The collection uses Postman's OAuth helper, which Newman can't run: TARGET_API_TOKEN was sent as the bearer access token instead.";
 
 /**
  * Removes the token, and cuts query strings, fragments and user:password@
@@ -99,7 +104,7 @@ export async function runCollection(opts: RunOptions): Promise<RunOutcome> {
   const collection = JSON.parse(await readFile(opts.collectionPath, "utf8")) as Collection;
   const environment = opts.environmentPath ? (JSON.parse(await readFile(opts.environmentPath, "utf8")) as object) : undefined;
 
-  const { plan, runnable, unmatchedExpectFail } = planCollection(collection, { allowWrites: opts.allowWrites, expectFail: opts.expectFail });
+  const { plan, runnable, unmatchedExpectFail, oauthHelper } = planCollection(collection, { allowWrites: opts.allowWrites, expectFail: opts.expectFail });
   const toRun = plan.filter((p) => p.run);
 
   const results: RequestResult[] = [];
@@ -156,6 +161,7 @@ export async function runCollection(opts: RunOptions): Promise<RunOutcome> {
     results,
     skipped,
     unmatchedExpectFail: unmatchedExpectFail.map((n) => scrub(n, opts.token)),
+    ...(oauthHelper ? { notes: [OAUTH_HELPER_NOTE] } : {}),
   };
 
   const json = JSON.stringify(report, null, 2) + "\n";
@@ -193,6 +199,7 @@ export function renderMarkdown(r: RunReport): string {
     "",
     "This report has no headers, bodies, full URLs or credentials.",
     "An expected failure is a 401, 402 or 403 on a request that the analysis says needs a plan or permission, or that was named with --expect-fail. Any other status is a real failure.",
+    ...(r.notes?.length ? ["", ...r.notes.map((n) => `Note: ${n}`)] : []),
     ...(r.unmatchedExpectFail.length
       ? ["", `Note: --expect-fail matched no request: ${r.unmatchedExpectFail.map((n) => `"${n}"`).join(", ")}.`]
       : []),

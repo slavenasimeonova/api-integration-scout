@@ -97,6 +97,7 @@ function exampleRequestsSection(a: Analysis): string[] {
       r.purpose,
       ...(r.placeholders.length ? ["", `Replace: ${r.placeholders.map((p) => `\`{${p}}\``).join(", ")}.`] : []),
       ...(r.bodyFrom === "converted" ? ["", "The body is the docs' example rewritten as JSON (in a different order or form); every key and value was checked against the page."] : []),
+      ...(r.maskedFields.length ? ["", `Credential fields replaced by variables: ${r.maskedFields.map((f) => `\`{{${f}}}\``).join(", ")}.`] : []),
       "",
       "```bash",
       r.curl,

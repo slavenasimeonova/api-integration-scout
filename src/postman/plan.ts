@@ -1,4 +1,4 @@
-import { ACCESS_VARIABLE, CHECK_HOST_FLAG } from "../generators/postman.js";
+import { ACCESS_VARIABLE, CHECK_HOST_FLAG, WEBHOOK_TEST_FOLDER } from "../generators/postman.js";
 
 /**
  * Decides which requests of a Postman collection may be sent automatically.
@@ -50,7 +50,7 @@ function skipReason(item: CollectionItem, allowWrites: boolean): string | undefi
 export function planCollection(
   collection: Collection,
   opts: { allowWrites: boolean; expectFail?: string[] },
-): { plan: PlannedRequest[]; runnable: Collection; unmatchedExpectFail: string[] } {
+): { plan: PlannedRequest[]; runnable: Collection; unmatchedExpectFail: string[]; oauthHelper: boolean } {
   const plan: PlannedRequest[] = [];
   const expectFail = new Set((opts.expectFail ?? []).map((n) => n.trim()));
   const matched = new Set<string>();
@@ -62,7 +62,9 @@ export function planCollection(
         return children.length ? [{ ...item, item: children }] : [];
       }
       if (!item.request) return [];
-      const reason = skipReason(item, opts.allowWrites);
+      // The webhook test posts to the user's own endpoint; a test run of the API never sends it.
+      const reason =
+        folder.split("/")[0] === WEBHOOK_TEST_FOLDER ? "tests your own webhook endpoint, not the API" : skipReason(item, opts.allowWrites);
       const name = item.name ?? "(unnamed)";
       const requires = item.variable?.find((v) => v.key === ACCESS_VARIABLE && !isEmpty(v.value))?.value;
       if (expectFail.has(name)) matched.add(name);
@@ -78,6 +80,16 @@ export function planCollection(
       return reason ? [] : [item];
     });
 
-  const runnable = { ...collection, item: walk(collection.item ?? [], "") };
-  return { plan, runnable, unmatchedExpectFail: [...expectFail].filter((n) => !matched.has(n)) };
+  const runnable: Collection = { ...collection, item: walk(collection.item ?? [], "") };
+  // Newman can't run Postman's "Get New Access Token" helper, so the access token
+  // from TARGET_API_TOKEN ({{apiKey}}) is sent as a bearer token instead.
+  const oauthHelper = isOAuthHelper(collection.auth);
+  if (oauthHelper) runnable.auth = { type: "bearer", bearer: [{ key: "token", value: "{{apiKey}}", type: "string" }] };
+  return { plan, runnable, unmatchedExpectFail: [...expectFail].filter((n) => !matched.has(n)), oauthHelper };
+}
+
+function isOAuthHelper(auth: unknown): boolean {
+  if (!auth || typeof auth !== "object") return false;
+  const a = auth as { type?: unknown; oauth2?: unknown };
+  return a.type === "oauth2" && Array.isArray(a.oauth2) && a.oauth2.some((kv) => (kv as { key?: unknown }).key === "grant_type");
 }

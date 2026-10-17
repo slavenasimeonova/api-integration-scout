@@ -3,7 +3,9 @@ import { DEFAULT_CONFIG } from "../src/core/config.js";
 import type { AgentOutput, Analysis } from "../src/core/schema.js";
 import { runScout } from "../src/core/scout.js";
 import { jsonExampleMatchesPage } from "../src/core/verify.js";
-import { buildMarkdown, buildSequenceDiagram } from "../src/generators/index.js";
+import { buildMarkdown, buildPostmanCollection, buildPostmanEnvironment, buildSequenceDiagram, validatePostmanCollection } from "../src/generators/index.js";
+import { WEBHOOK_TEST_FOLDER } from "../src/generators/postman.js";
+import { planCollection, type Collection } from "../src/postman/plan.js";
 import { buildExampleRequests } from "../src/generators/requests.js";
 import { fakeRunner } from "./helpers/fake-runner.js";
 import { GH_ROOT, githubFetcher, RAW_SPEC, SPEC } from "./helpers/fixtures.js";
@@ -188,15 +190,29 @@ describe("goal-mode document and diagram", () => {
   });
 
   it("builds curl commands with variables only, and a body only from the docs", () => {
-    const [subscribe, pause] = buildExampleRequests(analysis);
+    const [token, subscribe, pause] = buildExampleRequests(analysis);
+    // A documented client-credentials flow: get the token first, then use it.
+    expect(token!.curl).toContain("curl -X POST '{{tokenUrl}}'");
+    expect(token!.curl).toContain("-u '{{clientId}}:{{clientSecret}}'");
+    const body = JSON.stringify(
+      {
+        destination: { credentialType: "Bearer", credential: "{{credential}}", url: "https://example.com/hooks/parcel" },
+        trackingNumberList: ["1PP0000000000001"],
+      },
+      null,
+      2,
+    );
     expect(subscribe!.curl).toBe(
       [
         "curl -X POST '{{baseUrl}}/subscription/{type}/package' \\",
-        "  -H 'Authorization: Bearer {{apiKey}}' \\",
+        "  -H 'Authorization: Bearer {{accessToken}}' \\",
         "  -H 'Content-Type: application/json' \\",
-        `  --data '${analysis.endpoints[0]!.value!.exampleBody}'`,
+        `  --data '${body}'`,
       ].join("\n"),
     );
+    // The docs' placeholder secret ("secret") never reaches a request.
+    expect(subscribe!.curl).not.toContain('"secret"');
+    expect(subscribe!.maskedFields).toEqual(["credential"]);
     expect(subscribe!.placeholders).toEqual(["type"]);
     expect(subscribe!.bodyFrom).toBe("converted");
     expect(pause!.curl).not.toContain("--data");
@@ -205,7 +221,7 @@ describe("goal-mode document and diagram", () => {
   it("escapes single quotes in bodies for the shell", () => {
     const quoted: Analysis = structuredClone(analysis);
     quoted.endpoints[0]!.value!.exampleBody = `{"note": "it's here"}`;
-    expect(buildExampleRequests(quoted)[0]!.curl).toContain(`--data '{"note": "it'\\''s here"}'`);
+    expect(buildExampleRequests(quoted)[1]!.curl).toContain(`--data '{"note": "it'\\''s here"}'`);
   });
 
   it("draws the sequence diagram from the flow, with the webhook endpoint as a participant", () => {
@@ -229,5 +245,99 @@ describe("goal-mode document and diagram", () => {
     const md = buildMarkdown(plain as Analysis);
     expect(md).not.toContain("## Example requests");
     expect(md).not.toContain("## Integration flow");
+  });
+});
+
+describe("goal-mode Postman collection", () => {
+  const variable = (c: ReturnType<typeof buildPostmanCollection>, key: string) => c.variable.find((v) => v.key === key);
+
+  it("is valid Postman v2.1 and named after the goal", () => {
+    const c = buildPostmanCollection(analysis);
+    expect(validatePostmanCollection(c)).toEqual({ valid: true, errors: [] });
+    expect(c.info.name).toBe(`Parcelpost Alerts: ${GOAL.slice(0, 59)}… (API Integration Scout)`);
+    expect(c.info.description).toContain(`Goal: ${GOAL}`);
+  });
+
+  it("leaves baseUrl empty when the docs list several environments, and lists them as options", () => {
+    const c = buildPostmanCollection(analysis);
+    expect(variable(c, "baseUrl")).toMatchObject({ value: "" });
+    expect(variable(c, "baseUrl")!.description).toBe(
+      "The docs list 3 environments; choose one and paste its URL here. Options: Sandbox: https://sandbox.parcelpost.example/api/alerts/{{version}} | Production: https://api.parcelpost.example/api/alerts/{{version}} | Staging: https://staging.parcelpost.example/api",
+    );
+    expect(c.info.description).toContain("Staging: https://staging.parcelpost.example/api (inferred)");
+    // {version} in the server URL becomes a variable the user fills in.
+    expect(variable(c, "version")).toMatchObject({ value: "" });
+  });
+
+  it("sets up Postman's OAuth helper for a documented client-credentials flow", () => {
+    const c = buildPostmanCollection(analysis);
+    expect(c.auth).toEqual({
+      type: "oauth2",
+      oauth2: expect.arrayContaining([
+        { key: "grant_type", value: "client_credentials", type: "string" },
+        { key: "accessTokenUrl", value: "{{tokenUrl}}", type: "string" },
+        { key: "clientId", value: "{{clientId}}", type: "string" },
+        { key: "clientSecret", value: "{{clientSecret}}", type: "string" },
+      ]),
+    });
+    // Several environments: the token URL may differ per environment, so it isn't prefilled either.
+    expect(variable(c, "tokenUrl")).toMatchObject({ value: "" });
+    expect(variable(c, "tokenUrl")!.description).toContain("https://api.parcelpost.example/security/v1/oauth/token");
+  });
+
+  it("replaces credential fields in bodies and never ships the docs' placeholder secret", () => {
+    const c = buildPostmanCollection(analysis);
+    const json = JSON.stringify(c);
+    expect(json).toContain("{{credential}}");
+    expect(json).not.toContain('\\"secret\\"');
+    expect(variable(c, "credential")).toMatchObject({ value: "" });
+  });
+
+  it("adds a request that sends the docs' example event to the user's own webhook", () => {
+    const c = buildPostmanCollection(analysis);
+    const folder = c.item.find((f) => f.name === WEBHOOK_TEST_FOLDER)!;
+    const request = folder.item[0]!.request as { url: { raw: string }; auth: unknown; body?: { raw: string } };
+    expect(request.url.raw).toBe("{{webhookUrl}}");
+    expect(request.auth).toEqual({ type: "noauth" });
+    expect(request.body!.raw).toContain("Delivered");
+    expect(variable(c, "webhookUrl")).toMatchObject({ value: "" });
+  });
+
+  it("gives an environment with every variable empty and credentials marked secret", () => {
+    const env = buildPostmanEnvironment(analysis);
+    expect(env.values.every((v) => v.value === "")).toBe(true);
+    const types = Object.fromEntries(env.values.map((v) => [v.key, v.type]));
+    expect(types).toMatchObject({ baseUrl: "default", version: "default", tokenUrl: "default", clientId: "secret", clientSecret: "secret", apiKey: "secret", credential: "secret", webhookUrl: "default" });
+  });
+
+  it("prefills baseUrl and the token URL when the docs give exactly one environment", () => {
+    const one: Analysis = { ...analysis, environments: analysis.environments!.slice(1, 2) };
+    const env = Object.fromEntries(buildPostmanEnvironment(one).values.map((v) => [v.key, v.value]));
+    expect(env.baseUrl).toBe("https://api.parcelpost.example/api/alerts/{{version}}");
+    expect(env.tokenUrl).toBe("https://api.parcelpost.example/security/v1/oauth/token");
+    expect(env.clientSecret).toBe("");
+  });
+});
+
+describe("running a goal-mode collection with postman:run", () => {
+  it("never sends the webhook test, even with --allow-writes", () => {
+    const { plan } = planCollection(buildPostmanCollection(analysis) as unknown as Collection, { allowWrites: true });
+    expect(plan.find((p) => p.folder === WEBHOOK_TEST_FOLDER)).toMatchObject({ run: false, reason: "tests your own webhook endpoint, not the API" });
+    // The API requests are judged by the usual rules (here: empty path variables), not this one.
+    expect(plan.filter((p) => p.folder !== WEBHOOK_TEST_FOLDER).map((p) => p.reason)).toEqual(["no value for path variable :type", "no value for path variable :id"]);
+  });
+
+  it("sends TARGET_API_TOKEN as the bearer token instead of Postman's OAuth helper", () => {
+    const { runnable, oauthHelper } = planCollection(buildPostmanCollection(analysis) as unknown as Collection, { allowWrites: false });
+    expect(oauthHelper).toBe(true);
+    expect(runnable.auth).toEqual({ type: "bearer", bearer: [{ key: "token", value: "{{apiKey}}", type: "string" }] });
+  });
+
+  it("leaves other auth untouched", () => {
+    const plain: Analysis = { ...analysis, auth: { ...analysis.auth, value: { type: "bearer", location: "header", description: "Bearer token" } } };
+    const collection = buildPostmanCollection(plain) as unknown as Collection;
+    const { runnable, oauthHelper } = planCollection(collection, { allowWrites: false });
+    expect(oauthHelper).toBe(false);
+    expect(runnable.auth).toEqual(collection.auth);
   });
 });

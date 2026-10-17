@@ -1,5 +1,6 @@
 import type { Analysis, Auth } from "../core/schema.js";
 import { baseUrlOf, documentedAuthMethods, endpointTarget, usableEndpoints, type UsableEndpoint } from "./format.js";
+import { clientCredentialsAuth, maskCredentialFields } from "./variables.js";
 
 export type ExampleRequest = {
   /** e.g. "POST /subscription/{type}/package" */
@@ -10,6 +11,8 @@ export type ExampleRequest = {
   bodyFrom?: "verbatim" | "converted";
   /** Path or query placeholders the user replaces, e.g. ["type", "version"]. */
   placeholders: string[];
+  /** Body fields whose doc values were replaced by {{variables}}. */
+  maskedFields: string[];
 };
 
 /** Single-quoted for POSIX shells: ' becomes '\'' */
@@ -40,9 +43,31 @@ function authParts(auth: Auth | undefined): { headers: string[]; query: string[]
  */
 export function buildExampleRequests(analysis: Analysis): ExampleRequest[] {
   const baseUrl = baseUrlOf(analysis);
-  const auth = authParts(documentedAuthMethods(analysis)[0]?.value);
-  return usableEndpoints(analysis).map((ep: UsableEndpoint) => {
-    const { method, path, purpose, keyParams, exampleBody, exampleBodyFrom } = ep.value;
+  // With a documented client-credentials flow, the first example gets the token and the rest use it.
+  const oauth = clientCredentialsAuth(analysis);
+  const auth = oauth
+    ? { headers: ["Authorization: Bearer {{accessToken}}"], query: [], extra: [] }
+    : authParts(documentedAuthMethods(analysis)[0]?.value);
+  const token: ExampleRequest[] = oauth
+    ? [
+        {
+          title: "Get an access token (OAuth 2.0 client credentials)",
+          purpose: `Token URL from the docs: ${oauth.tokenUrl}. Put the access_token from the response in {{accessToken}}.`,
+          curl: [
+            "curl -X POST '{{tokenUrl}}' \\",
+            "  -u '{{clientId}}:{{clientSecret}}' \\",
+            "  -H 'Content-Type: application/x-www-form-urlencoded' \\",
+            "  --data 'grant_type=client_credentials'",
+          ].join("\n"),
+          placeholders: [],
+          maskedFields: [],
+        },
+      ]
+    : [];
+  return token.concat(usableEndpoints(analysis).map((ep: UsableEndpoint) => {
+    const { method, path, purpose, keyParams, exampleBodyFrom } = ep.value;
+    const masked = ep.value.exampleBody !== undefined ? maskCredentialFields(ep.value.exampleBody) : { body: undefined, fields: [] as string[] };
+    const exampleBody = masked.body;
     const target = endpointTarget(path, baseUrl);
     const host = target.kind === "absolute" ? target.origin : "{{baseUrl}}";
     const requiredQuery = keyParams.filter((p) => p.in === "query" && p.required).map((p) => `${p.name}={${p.name}}`);
@@ -73,6 +98,7 @@ export function buildExampleRequests(analysis: Analysis): ExampleRequest[] {
       curl,
       ...(exampleBody !== undefined && exampleBodyFrom ? { bodyFrom: exampleBodyFrom } : {}),
       placeholders,
+      maskedFields: masked.fields,
     };
-  });
+  }));
 }
