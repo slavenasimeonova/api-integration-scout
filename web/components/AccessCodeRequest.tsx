@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { BASE_PATH, REQUEST_API } from "@/lib/site";
+import { BASE_PATH, MAX_GOAL_CHARS, REQUEST_API } from "@/lib/site";
 import styles from "./Scout.module.css";
 
 type Sent = { id: string };
@@ -15,6 +15,7 @@ type Sent = { id: string };
 export function AccessCodeRequest() {
   const [code, setCode] = useState("");
   const [url, setUrl] = useState("");
+  const [goal, setGoal] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string>();
   const [sent, setSent] = useState<Sent>();
@@ -28,7 +29,11 @@ export function AccessCodeRequest() {
       const res = await fetch(`${REQUEST_API}/api/requests`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ code: code.trim(), url: /^[a-z]+:\/\//i.test(raw) ? raw : `https://${raw}` }),
+        body: JSON.stringify({
+          code: code.trim(),
+          url: /^[a-z]+:\/\//i.test(raw) ? raw : `https://${raw}`,
+          ...(goal.trim() ? { goal: goal.trim() } : {}),
+        }),
       });
       const body = (await res.json().catch(() => ({}))) as { id?: string; message?: string };
       if (res.ok && body.id) setSent({ id: body.id });
@@ -90,6 +95,22 @@ export function AccessCodeRequest() {
             className={styles.input}
             disabled={sending}
           />
+        </div>
+        <textarea
+          aria-label="Goal (optional)"
+          placeholder="Goal (optional), e.g. receive tracking events by webhook"
+          maxLength={MAX_GOAL_CHARS}
+          rows={2}
+          value={goal}
+          onChange={(e) => setGoal(e.target.value)}
+          className={`${styles.input} ${styles.goal}`}
+          disabled={sending}
+        />
+        <p className="muted small" style={{ margin: "0.3rem 0 0" }}>
+          With a goal, only the pages and endpoints it needs are analyzed. The goal is published with the result, so please
+          don&apos;t include confidential information (client names, internal systems, credentials).
+        </p>
+        <div className={styles.inputRow} style={{ marginTop: "0.5rem" }}>
           <button type="submit" className="btn btn-primary" disabled={sending || !code.trim() || !url.trim()}>
             {sending ? "Sending…" : "Request a run"}
           </button>

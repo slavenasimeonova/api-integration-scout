@@ -6,7 +6,10 @@ import type { Analysis } from "./types";
  * so the meters and the results header always agree.
  */
 export type RunFigures = {
+  /** Distinct pages fetched. */
   pagesRead: number;
+  /** Reads against the page limit: each part of a long page counts (equals pagesRead without parts). */
+  readsUsed: number;
   /** Wall clock from the start of the run to the verified result. */
   durationMs: number;
   /** Input + cache-write + output tokens: what the token budget counts. */
@@ -20,6 +23,7 @@ export function runFigures(a: Analysis): RunFigures {
   const r = a.run;
   return {
     pagesRead: a.pagesVisited.filter((p) => p.status === "fetched").length,
+    readsUsed: a.pagesVisited.reduce((n, p) => n + (p.status === "fetched" ? (p.parts ? (p.partsRead ?? 0) : 1) : 0), 0),
     durationMs: Math.max(0, Date.parse(a.generatedAt) - Date.parse(r.startedAt)),
     budgetedTokens: r.inputTokens + r.cacheCreationInputTokens + r.outputTokens,
     cacheReadTokens: r.cacheReadInputTokens,

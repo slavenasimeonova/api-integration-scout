@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { assetUrl, REQUEST_API } from "@/lib/site";
 import { RunReplay } from "./RunReplay";
 
-type Status = { status: "pending" | "done" | "declined"; url: string; createdAt: string; note?: string };
+type Status = { status: "pending" | "done" | "declined"; url: string; goal?: string; createdAt: string; note?: string };
 
 type View =
   | { kind: "loading" }
@@ -66,6 +66,11 @@ export function RequestResult() {
         {status.url}
         <span className="muted"> · requested {when(status.createdAt)}</span>
       </p>
+      {status.goal && (
+        <p className="small" style={{ margin: 0 }}>
+          <strong>Goal:</strong> {status.goal}
+        </p>
+      )}
       <p className="muted small" style={{ margin: 0 }}>
         {status.status === "pending" && "I review each request and run it myself, usually within a day. This page shows the result once it's published."}
         {status.status === "done" && "The run is finished and the result is being published. Check back in a few minutes."}

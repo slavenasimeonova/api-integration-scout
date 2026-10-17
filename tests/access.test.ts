@@ -107,6 +107,26 @@ describe("request API", () => {
     expect((await listRequests(store)).map((r) => r.codeName)).toEqual(["recruiter-acme"]);
   });
 
+  it("stores an optional goal, shows it on the status page, and includes it in the notification", async () => {
+    const { post, get, sent } = setup();
+    const res = await post({ code: ACME, url: "https://docs.example.com/api", goal: "  Receive tracking\nevents by webhook " });
+    expect(res.status).toBe(201);
+    const { id } = (await res.json()) as { id: string };
+    expect(sent[0]!.request.goal).toBe("Receive tracking events by webhook");
+    expect(await (await get(id)).json()).toMatchObject({ goal: "Receive tracking events by webhook" });
+  });
+
+  it("rejects a bad goal without counting it against the code", async () => {
+    const { post, store } = setup();
+    for (const goal of ["x".repeat(301), 7]) {
+      const res = await post({ code: ACME, url: "https://docs.example.com/api", goal });
+      expect(res.status).toBe(400);
+      expect(await res.json()).toMatchObject({ error: "invalid_goal" });
+    }
+    expect(await listRequests(store, { all: true })).toEqual([]);
+    expect((await post({ code: ACME, url: "https://docs.example.com/api" })).status).toBe(201);
+  });
+
   it("stores the request and logs when the notification fails", async () => {
     const { post, logs, store } = setup({
       notify: async () => {
@@ -229,6 +249,10 @@ describe("Telegram notifier", () => {
     expect(text).toContain("URL: https://docs.example.com/api");
     expect(text).toContain("Today: 1/3, total: 4/10");
     expect(text).toContain(`npm.cmd run request:fulfil -- ${request.id}`);
+    expect(text).not.toContain("Goal:");
+
+    await notify({ ...request, goal: "Receive webhook events" }, { today: 1, perDay: 3, total: 4, maxTotal: 10 });
+    expect(String(calls[1]!.body.text)).toContain("URL: https://docs.example.com/api\nGoal: Receive webhook events\n");
   });
 
   it("throws on an HTTP error without putting the token in the message", async () => {

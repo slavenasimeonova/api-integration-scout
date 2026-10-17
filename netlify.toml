@@ -6,7 +6,7 @@
   publish = "netlify/public"
   # Every production deploy costs 15 credits (Free: 300 a month), so build only when the
   # function's inputs change. A first build or a manual redeploy (same commit) always builds.
-  ignore = "[ \"$CACHED_COMMIT_REF\" != \"$COMMIT_REF\" ] && git diff --quiet $CACHED_COMMIT_REF $COMMIT_REF -- netlify.toml netlify src/access worker/safe-fetch.ts package.json package-lock.json"
+  ignore = "[ \"$CACHED_COMMIT_REF\" != \"$COMMIT_REF\" ] && git diff --quiet $CACHED_COMMIT_REF $COMMIT_REF -- netlify.toml netlify src/access src/core/goal.ts worker/safe-fetch.ts package.json package-lock.json"
 
 [build.environment]
   NODE_VERSION = "22"

@@ -43,7 +43,8 @@ export function Timeline({ events, running, live, final }: Props) {
     if (e.step === "run_completed") costUsd = e.costUsd;
   }
   if (final) {
-    pagesRead = final.pagesRead;
+    // The meter is measured against the page limit, which counts every part read.
+    pagesRead = final.readsUsed;
     if (tokens) tokens = { ...tokens, used: final.budgetedTokens };
     costUsd = final.costUsd;
   }

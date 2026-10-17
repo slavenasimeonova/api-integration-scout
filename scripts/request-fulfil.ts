@@ -95,6 +95,7 @@ async function main(): Promise<number> {
     try {
       const analysis = await runScout(request.url, {
         config,
+        goal: request.goal,
         fetcher: createSafeFetcher({ timeoutMs: config.fetchTimeoutMs }),
         signal: controller.signal,
         onEvent: (e) => {
@@ -104,11 +105,11 @@ async function main(): Promise<number> {
       });
       await mkdir(path.dirname(resultFile), { recursive: true });
       await writeFile(resultFile, JSON.stringify(resultBundle(analysis, events)) + "\n");
-      await logRun({ url: request.url, status: "success", requestId: id, codeName: request.codeName, ...analysis.run });
+      await logRun({ url: request.url, ...(request.goal ? { goal: request.goal } : {}), status: "success", requestId: id, codeName: request.codeName, ...analysis.run });
       console.log(`\nDone: ${money(analysis.run)}. Saved ${relative}`);
     } catch (err) {
       if (err instanceof ScoutError) {
-        await logRun({ url: request.url, status: "failed", reason: err.reason, requestId: id, codeName: request.codeName, ...err.run });
+        await logRun({ url: request.url, ...(request.goal ? { goal: request.goal } : {}), status: "failed", reason: err.reason, requestId: id, codeName: request.codeName, ...err.run });
         console.error(`\nRun failed (${err.reason}): ${err.message}${err.run ? ` (${money(err.run)})` : ""}`);
         console.error("The request stays pending. Retry, or decline it with --decline.");
         return 1;

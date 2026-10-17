@@ -115,6 +115,15 @@ examples/ipinfo/ Real run output (regenerated offline with the current host chec
 
       Generic "Bearer xyz" and JWT shapes are deliberately allowed, because docs quote placeholder tokens like those.
     - **Unconfirmed:** the links printed (`https://go.postman.co/collection/<uid>`, `/environment/<uid>`) haven't been tested against a real account yet. The user's first real push will check them.
+  - Step 6: the Goal field in the UI and request mode.
+    - **Validation:** `src/core/goal.ts` (`normalizeGoal`, 300 characters) has no dependencies, so the Netlify Function imports it without the HTML parser (bundle 12.7 KB). `netlify.toml`'s ignore list now includes `src/core/goal.ts`. `web/lib/site.ts` repeats the limit for `maxLength`, because web/ can't import src at runtime.
+    - **Worker:** accepts an optional `goal` and answers 400 `invalid_goal` before a run slot is spent.
+    - **Request API:** stores `goal` on the request (the status page shows it), puts it in the Telegram message, and rejects a bad goal with 400 `invalid_goal` without counting it. `request:list` and `request:fulfil` show the goal and pass it to the run.
+    - **Panel:** the access-code panel says the goal is published with the result and asks people not to include confidential information (user decision 2026-10-13).
+    - **Main form:** URL, then Goal, then the button on the right. Both fields are disabled in the static demo.
+    - **Results:** show the goal, an Environments table and a collapsible "Pages considered".
+    - **Meter:** the "Pages read" meter counts reads against the limit (parts included) via `figures.readsUsed`. The header shows "N pages read (M parts)".
+    - **Fixtures:** Parcelpost goal fixtures live in `tests/helpers/parcelpost.ts`. Fake keys in tests are assembled at runtime (`["PMAK", ...].join("-")`) so secret scanners never see a key-shaped literal.
   - Step 1 is done: long pages are no longer cut off.
   - `fetch_page(url, part)` serves pages in parts of `maxPageChars`, split at line breaks (`splitParts`). Each part takes one slot of the page limit. A page counts as truncated only if some parts were never read; `reportUnreadParts()` emits `page_truncated` once the agent finishes.
   - OpenAPI/Swagger specs (YAML or JSON) start with an outline built in code (`spec-outline.ts`, no YAML parser) that names the part holding each path, webhook, security scheme and schema.

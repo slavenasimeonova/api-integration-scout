@@ -25,6 +25,7 @@ export function describeRequest(r: ScoutRequest): string {
     `Request ${r.id}`,
     `  Code:    ${r.codeName}`,
     `  URL:     ${r.url}`,
+    ...(r.goal ? [`  Goal:    ${r.goal}`] : []),
     `  Time:    ${utc(r.createdAt)}`,
     `  Status:  ${r.status}${r.updatedAt ? ` (${utc(r.updatedAt)})` : ""}${r.note ? `: ${r.note}` : ""}`,
   ].join("\n");

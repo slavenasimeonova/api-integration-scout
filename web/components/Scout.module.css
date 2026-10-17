@@ -29,6 +29,23 @@
   outline-offset: 1px;
 }
 
+/* The submit button sits under the goal field, on the right. */
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 0.5rem;
+}
+
+/* Goal field: full width under the URL row, resizable only vertically. */
+.goal {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 0.5rem;
+  resize: vertical;
+  min-height: 2.6rem;
+}
+
 .examples {
   margin-top: 1.2rem;
 }

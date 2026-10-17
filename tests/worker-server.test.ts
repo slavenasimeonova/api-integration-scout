@@ -82,6 +82,27 @@ describe("worker server", () => {
     expect(await (await fetch(`${base}/api/limits`)).json()).toMatchObject({ visitorRemaining: 2 });
   });
 
+  it("passes an optional goal to the run", async () => {
+    const { base } = await start();
+    const res = await fetch(`${base}/api/run`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url: ACME_ROOT, goal: "  Receive webhook events\n" }),
+    });
+    const last = (await lines(res)).at(-1)!;
+    expect(last.type === "result" && last.analysis.goal).toBe("Receive webhook events");
+  });
+
+  it("rejects a bad goal before using a run slot", async () => {
+    const { base } = await start();
+    for (const goal of ["x".repeat(301), 42]) {
+      const res = await fetch(`${base}/api/run`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url: ACME_ROOT, goal }) });
+      expect(res.status).toBe(400);
+      expect(await res.json()).toMatchObject({ error: "invalid_goal" });
+    }
+    expect(await (await fetch(`${base}/api/limits`)).json()).toMatchObject({ visitorRemaining: 3 });
+  });
+
   it("answers 429 once the visitor's runs are used up", async () => {
     const { post } = await start({ limits: { perVisitorRuns: 1 } });
     await (await post(ACME_ROOT)).text();

@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { EXAMPLES } from "@/lib/examples";
 import { runFigures } from "@/lib/figures";
 import { readNdjson } from "@/lib/ndjson";
-import { REQUEST_API, STATIC_DEMO } from "@/lib/site";
+import { MAX_GOAL_CHARS, REQUEST_API, STATIC_DEMO } from "@/lib/site";
 import { AccessCodeRequest } from "./AccessCodeRequest";
 import type { LimitStatus, ProgressEvent, RunResult, RunStreamLine } from "@/lib/types";
 import { Results } from "./Results";
@@ -29,6 +29,7 @@ function normalizeUrl(input: string): string | undefined {
 /** Input, live run and results. A run starts only on a click, never on page load or refresh. */
 export function Scout() {
   const [input, setInput] = useState("");
+  const [goal, setGoal] = useState("");
   const [phase, setPhase] = useState<Phase>("idle");
   const [events, setEvents] = useState<ProgressEvent[]>([]);
   const [result, setResult] = useState<RunResult>();
@@ -71,7 +72,7 @@ export function Scout() {
       const res = await fetch("/api/run", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url }),
+        body: JSON.stringify({ url, ...(goal.trim() ? { goal: goal.trim() } : {}) }),
         signal: controller.current.signal,
       });
       if (!res.ok || !res.body) {
@@ -135,6 +136,19 @@ export function Scout() {
             disabled={running || STATIC_DEMO}
             className={styles.input}
           />
+        </div>
+        <textarea
+          id="goal"
+          aria-label="Goal (optional)"
+          placeholder="Goal (optional), e.g. receive tracking events by webhook"
+          maxLength={MAX_GOAL_CHARS}
+          rows={2}
+          value={goal}
+          onChange={(e) => setGoal(e.target.value)}
+          disabled={running || STATIC_DEMO}
+          className={`${styles.input} ${styles.goal}`}
+        />
+        <div className={styles.actions}>
           {running ? (
             <button type="button" className="btn" onClick={() => controller.current?.abort()}>
               Cancel

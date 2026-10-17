@@ -9,7 +9,7 @@ import type { Candidate } from "./tools.js";
  * considered. The agent still chooses what to read, within the page limit.
  */
 
-export const MAX_GOAL_CHARS = 300;
+export { MAX_GOAL_CHARS, normalizeGoal } from "./goal.js";
 
 const STOPWORDS = new Set(
   (
@@ -18,15 +18,6 @@ const STOPWORDS = new Set(
     "need needs new make all any can do does each per out over about which what will should would"
   ).split(" "),
 );
-
-/** Checks and normalizes a goal: plain text, one line, at most MAX_GOAL_CHARS. Returns undefined for an empty goal. */
-export function normalizeGoal(raw: string | undefined): string | undefined {
-  if (raw === undefined) return undefined;
-  const goal = raw.replace(/[\u0000-\u001f\u007f]+/g, " ").replace(/\s+/g, " ").trim();
-  if (!goal) return undefined;
-  if (goal.length > MAX_GOAL_CHARS) throw new Error(`The goal is ${goal.length} characters; the limit is ${MAX_GOAL_CHARS}.`);
-  return goal;
-}
 
 /** Splits text into lowercase word tokens; camelCase and digits split too ("TrackAlert" -> track, alert). */
 export function tokens(text: string): string[] {

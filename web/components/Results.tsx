@@ -2,7 +2,7 @@
 
 import { formatSeconds, formatTokens, formatUsd, runFigures } from "@/lib/figures";
 import { glanceRows, safeHref, shortPath, STATUS_LABEL } from "@/lib/format";
-import type { Finding, FindingStatus, Risk, RunResult } from "@/lib/types";
+import type { Analysis, Finding, FindingStatus, Risk, RunResult } from "@/lib/types";
 import { Downloads } from "./Downloads";
 import { MermaidDiagram } from "./MermaidDiagram";
 import styles from "./Results.module.css";
@@ -22,11 +22,16 @@ export function Results({ result }: { result: RunResult }) {
       <header className={styles.header}>
         <div>
           <h1>{a.apiName}</h1>
+          {a.goal && (
+            <p className="small">
+              <strong>Goal:</strong> {a.goal} <span className="muted">(only what this goal needs)</span>
+            </p>
+          )}
           <p className={styles.summary}>{a.summary}</p>
           <p className="muted small">
             From {docsHref ? <a href={docsHref} target="_blank" rel="noreferrer noopener">{a.docsUrl}</a> : a.docsUrl} · {a.run.model}
             <br />
-            {fig.pagesRead} {fig.pagesRead === 1 ? "page" : "pages"} read · {formatSeconds(fig.durationMs)} · {formatTokens(fig.totalTokens)} tokens (
+            {fig.pagesRead} {fig.pagesRead === 1 ? "page" : "pages"} read{fig.readsUsed > fig.pagesRead ? ` (${fig.readsUsed} parts)` : ""} · {formatSeconds(fig.durationMs)} · {formatTokens(fig.totalTokens)} tokens (
             {formatTokens(fig.budgetedTokens)} budgeted + {formatTokens(fig.cacheReadTokens)} cache reads) · {formatUsd(fig.costUsd)}
           </p>
         </div>
@@ -205,7 +210,74 @@ export function Results({ result }: { result: RunResult }) {
 
       <h2>Integration flow</h2>
       <MermaidDiagram code={result.files["sequence.mmd"] ?? ""} />
+
+      <Environments analysis={a} />
+      <PagesConsidered analysis={a} />
     </div>
+  );
+}
+
+/** Servers the docs list; the Postman baseUrl is left for the user to choose when there are several. */
+function Environments({ analysis }: { analysis: Analysis }) {
+  const envs = (analysis.environments ?? []).filter((e) => e.status !== "not_found" && e.value);
+  if (!envs.length) return null;
+  return (
+    <>
+      <h2>Environments</h2>
+      <p className="muted small">The docs list these servers. Pick one yourself: the Postman baseUrl variable lists them as options.</p>
+      <div className={`card table-wrap ${styles.flush}`}>
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Base URL</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {envs.map((e, i) => (
+              <tr key={i}>
+                <td>{e.value!.name}</td>
+                <td>
+                  <code style={{ overflowWrap: "anywhere" }}>{e.value!.url}</code>
+                </td>
+                <td>
+                  <StatusBadge status={e.status} />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </>
+  );
+}
+
+const READ_LABEL = { read: "read", partly: "partly read", failed: "failed", not_read: "not read" } as const;
+
+/** Goal mode: what the ranking considered and why pages were (not) read. */
+function PagesConsidered({ analysis }: { analysis: Analysis }) {
+  const d = analysis.discovery;
+  if (!d?.pages.length) return null;
+  return (
+    <details className="card" style={{ marginTop: "1.2rem" }}>
+      <summary style={{ cursor: "pointer", fontWeight: 600 }}>Pages considered for the goal ({d.pages.length})</summary>
+      <p className="muted small">
+        Keywords: {d.terms.join(", ") || "none"}. Scores come from matching link text and URLs to the goal; the reasons are the agent&apos;s.
+      </p>
+      <ul className="small" style={{ paddingLeft: "1.1rem", display: "grid", gap: "0.35rem" }}>
+        {d.pages.map((p, i) => (
+          <li key={i} style={{ overflowWrap: "anywhere" }}>
+            <code>{p.url}</code>{" "}
+            <span className="muted">
+              · {READ_LABEL[p.read]} · score {p.score}
+              {p.matched.length ? ` (${p.matched.join(", ")})` : ""}
+            </span>
+            {p.reason && <div>{p.relevant === false ? "Not relevant: " : ""}{p.reason}</div>}
+          </li>
+        ))}
+      </ul>
+    </details>
   );
 }
 

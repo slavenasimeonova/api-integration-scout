@@ -38,7 +38,7 @@ export function Downloads({ slug, files, postmanErrors }: { slug: string; files:
       {files["postman_collection.json"] === undefined && (
         <p className="error-box small">The Postman collection failed schema validation and wasn&rsquo;t generated: {postmanErrors.join("; ")}</p>
       )}
-      <p className="muted small">Import both Postman files, select the environment, and paste your key into apiKey.</p>
+      <p className="muted small">Import both Postman files, select the environment, and fill in its empty values: your credentials, and baseUrl when it lists several environments.</p>
     </div>
   );
 }

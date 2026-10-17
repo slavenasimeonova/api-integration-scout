@@ -1,4 +1,5 @@
 import { createHash, randomBytes } from "node:crypto";
+import { normalizeGoal } from "../core/goal.js";
 import { findCode, type AccessCode } from "./codes.js";
 import type { KvStore } from "./store.js";
 import type { Notify } from "./telegram.js";
@@ -22,6 +23,8 @@ export type ScoutRequest = {
   id: string;
   codeName: string;
   url: string;
+  /** Optional: what the visitor wants to build; the run is scoped to it. Published with the result. */
+  goal?: string;
   createdAt: string;
   status: RequestStatus;
   updatedAt?: string;
@@ -87,14 +90,21 @@ export async function handleRequestApi(req: Request, deps: RequestApiDeps): Prom
 
   // New request.
   if (!deps.enabled) return fail(503, "paused", "Requests are paused right now. Please try again later.");
-  let body: { code?: unknown; url?: unknown };
+  let body: { code?: unknown; url?: unknown; goal?: unknown };
   try {
     body = (await req.json()) as typeof body;
   } catch {
-    return fail(400, "invalid_body", "Send JSON: { code, url }.");
+    return fail(400, "invalid_body", "Send JSON: { code, url, goal? }.");
   }
   if (typeof body.code !== "string" || typeof body.url !== "string" || body.code.length > 100 || body.url.length > 2000) {
-    return fail(400, "invalid_body", "Send JSON: { code, url }.");
+    return fail(400, "invalid_body", "Send JSON: { code, url, goal? }.");
+  }
+  let goal: string | undefined;
+  try {
+    if (body.goal !== undefined && body.goal !== null && typeof body.goal !== "string") throw new Error("The goal must be text.");
+    goal = normalizeGoal((body.goal as string | null | undefined) ?? undefined);
+  } catch (err) {
+    return fail(400, "invalid_goal", (err as Error).message);
   }
 
   const at = now();
@@ -127,7 +137,7 @@ export async function handleRequestApi(req: Request, deps: RequestApiDeps): Prom
   if (total >= code.total) return fail(429, "code_limit_total", `This code has used all ${code.total} requests.`);
   if (today >= code.perDay) return fail(429, "code_limit_day", `This code has used today's ${code.perDay} requests. Try again tomorrow (UTC).`);
 
-  const record: ScoutRequest = { id: newId(), codeName: code.name, url, createdAt: at.toISOString(), status: "pending" };
+  const record: ScoutRequest = { id: newId(), codeName: code.name, url, ...(goal ? { goal } : {}), createdAt: at.toISOString(), status: "pending" };
   await deps.store.setJSON(requestKey(record.id), record);
   await deps.store.setJSON(dayKey, { count: today + 1 });
   await deps.store.setJSON(totalKey, { count: total + 1 });

@@ -2,6 +2,7 @@ import { timingSafeEqual } from "node:crypto";
 import http from "node:http";
 import { runScout, ScoutError, type AgentRunner, type Fetcher, type ProgressEvent, type ScoutConfig } from "../src/core/index.js";
 import type { Analysis, RunStats } from "../src/core/schema.js";
+import { normalizeGoal } from "../src/core/goal.js";
 import { buildOutputs } from "../src/generators/index.js";
 import type { RunLimiter } from "./limits.js";
 import { BlockedUrlError, checkUrl } from "./safe-fetch.js";
@@ -56,12 +57,22 @@ async function handle(req: http.IncomingMessage, res: http.ServerResponse, deps:
   if (req.method !== "POST" || path !== "/api/run") return json(res, 404, { error: "not_found", message: "Not found" });
 
   let url: string;
+  let rawGoal: unknown;
   try {
-    const body = JSON.parse(await readBody(req)) as { url?: unknown };
+    const body = JSON.parse(await readBody(req)) as { url?: unknown; goal?: unknown };
     if (typeof body.url !== "string" || !body.url.trim()) throw new Error();
     url = body.url.trim();
+    rawGoal = body.goal;
   } catch {
-    return json(res, 400, { error: "bad_request", message: 'Send JSON like {"url": "https://docs.example.com"}' });
+    return json(res, 400, { error: "bad_request", message: 'Send JSON like {"url": "https://docs.example.com", "goal": "optional"}' });
+  }
+  // An optional goal scopes the run; it is checked before a run slot is spent.
+  let goal: string | undefined;
+  try {
+    if (rawGoal !== undefined && rawGoal !== null && typeof rawGoal !== "string") throw new Error("The goal must be text.");
+    goal = normalizeGoal(rawGoal ?? undefined);
+  } catch (err) {
+    return json(res, 400, { error: "invalid_goal", message: (err as Error).message });
   }
 
   // Reject unsafe or unresolvable URLs before a run slot is spent.
@@ -98,6 +109,7 @@ async function handle(req: http.IncomingMessage, res: http.ServerResponse, deps:
       config: deps.config,
       fetcher: deps.fetcher,
       runner: deps.runner,
+      goal,
       signal: controller.signal,
       onEvent: (event) => send({ type: "event", event }),
     });
