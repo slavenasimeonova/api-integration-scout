@@ -3,7 +3,7 @@
 People you give an access code to can request a run from the public demo. You review each request, run it on your machine, and publish the result to the site. It costs $0 in hosting: GitHub Pages and the Netlify Free plan. You only pay Anthropic for the runs you choose to do.
 
 ```
-Pages (home): "Have an access code?" -> code + docs URL
+Pages (home): "Have an access code?" -> code + docs URL + optional goal
   -> Netlify Function /api/requests: kill switch, wrong-code throttle (10 per IP per hour),
      code hash check, per-code limits (per day, total), URL check
   -> stored in Netlify Blobs as "pending" -> Telegram message to you
@@ -116,7 +116,7 @@ NETLIFY_AUTH_TOKEN=...
 ### 7. Test it
 
 1. Open the demo, click **Have an access code?**, and submit your code with `https://ipinfo.io/developers`.
-2. Check that a Telegram message arrives with the code name, the URL and a ready-to-run command.
+2. Check that a Telegram message arrives with the code name, the URL (and the goal, if you gave one) and a ready-to-run command.
 3. Run `npm.cmd run request:list`. It should show the request.
 
 ## Daily use
@@ -127,9 +127,11 @@ npm.cmd run request:fulfil -- <id>       # review, run, publish
 npm.cmd run request:fulfil -- <id> --decline --note "Docs need a login"   # decline
 ```
 
+**Goals.** A visitor can add a goal (up to 300 characters). The panel tells them that the goal is published with the result and asks them not to include confidential information. The goal is shown in Telegram, by `request:list` and in the `request:fulfil` review, and the run is scoped to it ([goal mode](goal-mode.md)). A goal longer than 300 characters is rejected without using up one of the code's requests.
+
 `request:fulfil` works through these steps:
 
-1. **Shows the request:** the URL, the code name, the request time and the status.
+1. **Shows the request:** the URL, the goal (if any), the code name, the request time and the status.
 2. **Checks the URL:** the scheme, the port, and that its DNS points to public addresses. The run itself uses the same SSRF-safe fetcher as the worker, because the URL is fetched from your machine.
 3. **Asks before running.** This is a paid run with your `.env` key: 5 pages by default (`--max-pages` changes it), with the usual $0.50 per-run cap. Every run, including failed ones, is logged in `outputs/runs.jsonl` with the request id and code name.
 4. **Saves** the result to `web/public/results/<id>.json`. The file has the same shape as a saved example and contains no code name.
@@ -156,7 +158,7 @@ npm.cmd run request:fulfil -- <id> --decline --note "Docs need a login"   # decl
 | Item | Cost |
 | --- | --- |
 | GitHub Pages, Telegram | $0 |
-| Netlify Free (300 credits a month) | Each production deploy costs 15 credits. `netlify.toml` has an `ignore` rule, so Netlify rebuilds only when `netlify/`, `src/access/`, `worker/safe-fetch.ts`, `netlify.toml` or the root package files change. Publishing results doesn't trigger a Netlify deploy. Requests cost about 2 credits per 10,000. At 300 credits the project is paused until next month; it never bills you. |
+| Netlify Free (300 credits a month) | Each production deploy costs 15 credits. `netlify.toml` has an `ignore` rule, so Netlify rebuilds only when `netlify/`, `src/access/`, `src/core/goal.ts`, `worker/safe-fetch.ts`, `netlify.toml` or the root package files change (so adding an npm script also costs one deploy). Publishing results doesn't trigger a Netlify deploy. Requests cost about 2 credits per 10,000. At 300 credits the project is paused until next month; it never bills you. |
 | Anthropic | Only the runs you approve: about $0.11 to $0.13 per 5-page run (recordings from 2026-10-07 and 2026-10-09) |
 
 ## Troubleshooting

@@ -59,10 +59,28 @@ npm run scout -- https://docs.example.com/api
 
 | Option | Default | Description |
 | --- | --- | --- |
-| `--max-pages <n>` | 15 | Pages to fetch (same site only) |
+| `--goal "<text>"` | none | Analyze only what this goal needs (up to 300 characters). See [Goal mode](#goal-mode) |
+| `--max-pages <n>` | 15 | Pages to fetch (same site only); each part of a long page counts as one |
 | `--model <id>` | `claude-sonnet-5-5` | Claude model |
 | `--out <dir>` | `outputs` | Output root folder |
 | `--json` | off | Print progress events as JSON lines |
+| `--postman-push` | off | Also push the collection and an empty environment into your Postman workspace (`POSTMAN_API_KEY` in `.env`). Reruns update the same ones |
+
+### Goal mode
+
+Give Scout what you're building, and it reads only the pages that goal needs:
+
+```bat
+npm run scout -- https://github.com/UPS-API/api-documentation --max-pages 6 --goal "Track Alert: subscribe to tracking events for a shipment and receive status updates by webhook" --postman-push
+```
+
+- **Ranking in code:** the goal's keywords rank the links on each page and the sitemap (when there is one), and the agent reads what the goal needs within the page limit.
+- **Long pages:** pages and OpenAPI specs longer than 12,000 characters are read in parts. A spec starts with an outline of where each endpoint, webhook and schema is.
+- **The document:** `analysis.md` adds the integration flow, the environments the docs list, the webhook payload, `curl` example requests, and a **Pages considered** table with the agent's reasons.
+- **The collection:** only the goal's requests, with credentials and the base URL as variables. When the docs list several environments, `{{baseUrl}}` lists them and stays empty for you to choose.
+- **`--postman-push`:** puts the collection and environment straight into your workspace. It refuses to push if anything looks like a credential. To push an existing result without a paid run: `npm run postman:push -- <output folder>`.
+
+Full guide, including the Postman API key setup and the UPS notes: [docs/goal-mode.md](docs/goal-mode.md).
 
 ### Configuration (`.env`)
 
@@ -77,19 +95,19 @@ Cache reads aren't counted against `SCOUT_MAX_TOKENS`. Every agent turn re-sends
 
 ### Outputs
 
-Saved to `outputs/<api-name>/`:
+Saved to `outputs/<api-name>/` (goal runs: `outputs/<api-name>--<goal words>/`; after a push, `postman-sync.json` holds the Postman ids):
 
 | File | Contents |
 | --- | --- |
 | `analysis.json` | Full structured result (schema: `Analysis` in `src/core/schema.ts`) |
 | `analysis.md` | Human-readable integration summary |
 | `postman_collection.json` | Postman Collection v2.1 using `{{baseUrl}}` and `{{apiKey}}`. Validated against the official schema before saving. Path variables are prefilled only with values from the docs' own example URLs (e.g. `ip` = `8.8.8.8` from IPinfo's `curl` examples). A request body is set only when the docs show an example body, verified against the page; otherwise the request has no body and its description lists the documented body fields. When the docs state that an endpoint needs a plan or permission (verified quote), its request says so in the description and carries a `scoutRequires` variable for the Newman runner. Collection auth is the primary documented method; every other documented method (e.g. `?token={{apiKey}}`, HTTP Basic) gets a sample request in the **Auth alternatives** folder |
-| `postman_environment.json` | Environment template: public `baseUrl` prefilled when known, `apiKey` empty |
+| `postman_environment.json` | Environment template: every credential empty. A public `baseUrl` is prefilled when the docs give one; with several environments it stays empty and the collection lists the options |
 | `sequence.mmd` | Mermaid sequence diagram of the main integration flow |
 
 Every run, successful or failed, is appended to `outputs/runs.jsonl` with its tokens and cost.
 
-To use the collection in Postman: *Import* both JSON files, select the environment, and paste your API key into `apiKey`.
+To use the collection in Postman: *Import* both JSON files (or use `--postman-push`), select the environment, and fill in its empty values: your credentials, and `baseUrl` when it lists several environments.
 
 **Tests in every request.** Each generated request carries a small Postman test script:
 
@@ -135,7 +153,7 @@ The report is saved as Markdown and JSON in `outputs/postman-runs/`. It covers e
 
 A Next.js app in `web/` that wraps the same core. It has three parts:
 
-- **Input:** paste a docs URL, or open one of three saved examples.
+- **Input:** paste a docs URL and, optionally, a goal; or open one of three saved examples.
 - **Live run:** a timeline of the agent's progress events, with page, token, time and cost meters.
 - **Results:** Documented / Inferred / Not found badges with source quotes, the auth methods, endpoints, risks and open questions, the rendered sequence diagram, and download buttons.
 
@@ -165,7 +183,7 @@ Worker settings (environment variables): `PORT` (8787), `LIMIT_RUNS_PER_VISITOR`
 
 Static demo (examples only, no live runs, no API key): `npm run build:static` in `web/` exports the site to `web/out/`, and `npm run preview:static` serves it locally. GitHub Actions deploys it to GitHub Pages; see [docs/hosting.md](docs/hosting.md).
 
-Request mode (access codes, $0 hosting): a Netlify Function stores requests from people with an access code and notifies me on Telegram; `npm run request:list` and `npm run request:fulfil -- <id>` review, run and publish them. Setup and daily use: [docs/requests.md](docs/requests.md).
+Request mode (access codes, $0 hosting): a Netlify Function stores requests (URL and optional goal) from people with an access code and notifies me on Telegram; `npm run request:list` and `npm run request:fulfil -- <id>` review, run and publish them. Setup and daily use: [docs/requests.md](docs/requests.md).
 
 ## Verification at work (offline fixture)
 

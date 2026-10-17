@@ -11,7 +11,8 @@ API Integration Scout is a TypeScript agent built on the Claude Agent SDK. It re
 ```bat
 npm test                 :: Vitest, fully offline (fixtures + scripted fake SDK runner)
 npm run typecheck        :: tsc --noEmit (TypeScript 7)
-npm run scout -- <url> [--max-pages 5] [--model id] [--out dir] [--json]
+npm run scout -- <url> [--goal "..."] [--max-pages 5] [--model id] [--out dir] [--json] [--postman-push]
+npm run postman:push -- <output folder>   :: push an existing result to Postman (POSTMAN_API_KEY), no paid run
 npm run postman:run -- <collection.json> [--env env.json] [--allow-writes]   :: Newman; GET only by default; token from TARGET_API_TOKEN
 ```
 
@@ -23,15 +24,21 @@ npm run postman:run -- <collection.json> [--env env.json] [--allow-writes]   :: 
 ```
 src/core/        Agent core: no CLI or fs code. Public API in core/index.ts
   scout.ts       runScout(url, { config, onEvent, signal, fetcher, runner }) -> Analysis
-  tools.ts       DocsSession: fetch_page / report_progress, same-site rule, page limit,
-                 truncation (12k chars to the model), low-text/JS-rendering detection
+  tools.ts       DocsSession: fetch_page(url, part) / report_progress, same-site rule, page limit,
+                 long pages in 12k-char parts, goal-ranked links, low-text/JS-rendering detection
+  relevance.ts   Goal mode: keywords, link scoring, sitemap parsing, pages-considered report
+  sitemap.ts     Goal mode: robots.txt / sitemap.xml discovery (same site, max 3 files)
+  spec-outline.ts  OpenAPI/Swagger outline (YAML by indentation, JSON parsed) naming each item's part
+  goal.ts        normalizeGoal (dependency-free; also used by the Netlify Function)
   verify.ts      Normalized quote verification; downgrades unverifiable "documented" claims
   hosts.ts       Fixes or flags endpoint hosts using full URLs in verified quotes
   budget.ts      Token budget (per message id; cache reads excluded)
   schema.ts      Zod AgentOutput (sent as outputFormat, draft-07) + Analysis type
   events.ts      ProgressEvent union + safe emitter
   prompt.ts      System prompt (evidence rules, auth alternatives, live progress)
-src/generators/  Deterministic, no model calls: Analysis -> files in memory (buildOutputs)
+src/generators/  Deterministic, no model calls: Analysis -> files in memory (buildOutputs);
+                 variables.ts (shared Postman/curl variables), requests.ts (curl examples)
+src/postman/     Newman runner (plan.ts, run.ts) and Postman API push (push.ts, push-dir.ts)
 src/cli/         Arg parsing, ASCII progress output, writes outputs/
 schemas/         Official Postman Collection v2.1 schema (draft-04), vendored
 tests/           Offline tests; fixtures/acme-weather is a fake docs site
@@ -80,7 +87,12 @@ examples/ipinfo/ Real run output (regenerated offline with the current host chec
   - `request:fulfil` always shows the URL, code name and time and asks before the paid run and again before git push. It uses the SSRF-safe fetcher (the URL is fetched from the owner's machine), and published results never contain the code name.
   - Netlify charges 15 credits per production deploy (Free: 300 a month), so `netlify.toml` has an `ignore` rule limiting builds to the function's inputs. Keep that list in sync if the function imports new files.
   - Kill switch: `REQUESTS_ENABLED=off` plus a redeploy (env vars reach functions only at deploy). Revoke a code by removing its entry and redeploying.
-- **Goal-directed scouting (approved 2026-10-13, in progress; plan: commits 1 to 7).**
+- **Goal-directed scouting (approved 2026-10-13; built 2026-10-17 in commits 1 to 7; user guide: `docs/goal-mode.md`).** Not yet run against the real API: the first paid UPS run needs the user's approval (estimate $0.11 to $0.16 with `--max-pages 6`, starting from github.com/UPS-API/api-documentation).
+  - Step 1: long pages are no longer cut off.
+  - `fetch_page(url, part)` serves pages in parts of `maxPageChars`, split at line breaks (`splitParts`). Each part takes one slot of the page limit. A page counts as truncated only if some parts were never read; `reportUnreadParts()` emits `page_truncated` once the agent finishes.
+  - OpenAPI/Swagger specs (YAML or JSON) start with an outline built in code (`spec-outline.ts`, no YAML parser) that names the part holding each path, webhook, security scheme and schema.
+  - Docs on GitHub: blob links are fetched as raw files (`fetchableUrl`), and when the root URL is on GitHub, "same site" means the same owner on github.com or raw.githubusercontent.com.
+  - UPS (checked 2026-10-13): developer.ups.com is an Angular app, and every page is a 25 KB shell with no text. Its official OpenAPI specs at github.com/UPS-API/api-documentation are readable. `UPSTrackAlert.yaml` is 32k characters, and its `paths` start at 11.3k, so before parts existed the 12k cap hid the endpoints. That spec also nests `webhooks:`/`TrackingEvent` under `paths` (the outline handles it).
   - Step 2: `--goal` (`runScout({ goal })`, at most 300 characters, `normalizeGoal`).
     - **Ranking in code** (`relevance.ts`): crude stemming (7-letter prefix, so subscribe/subscription meet), 2 points per keyword in the link text, 1 per keyword only in the URL path, and 1 point for auth links, because goals rarely mention auth.
     - **What the agent sees:** fetched pages list same-site links ranked, with `[score: terms]`, plus the headings that match. The sitemap (robots.txt, then `/sitemap.xml`, an index one level deep, at most 3 files, skipped on GitHub) is ranked before the run, and its best 25 matches go in the user prompt.
@@ -124,11 +136,6 @@ examples/ipinfo/ Real run output (regenerated offline with the current host chec
     - **Results:** show the goal, an Environments table and a collapsible "Pages considered".
     - **Meter:** the "Pages read" meter counts reads against the limit (parts included) via `figures.readsUsed`. The header shows "N pages read (M parts)".
     - **Fixtures:** Parcelpost goal fixtures live in `tests/helpers/parcelpost.ts`. Fake keys in tests are assembled at runtime (`["PMAK", ...].join("-")`) so secret scanners never see a key-shaped literal.
-  - Step 1 is done: long pages are no longer cut off.
-  - `fetch_page(url, part)` serves pages in parts of `maxPageChars`, split at line breaks (`splitParts`). Each part takes one slot of the page limit. A page counts as truncated only if some parts were never read; `reportUnreadParts()` emits `page_truncated` once the agent finishes.
-  - OpenAPI/Swagger specs (YAML or JSON) start with an outline built in code (`spec-outline.ts`, no YAML parser) that names the part holding each path, webhook, security scheme and schema.
-  - Docs on GitHub: blob links are fetched as raw files (`fetchableUrl`), and when the root URL is on GitHub, "same site" means the same owner on github.com or raw.githubusercontent.com.
-  - UPS (checked 2026-10-13): developer.ups.com is an Angular app, and every page is a 25 KB shell with no text. Its official OpenAPI specs at github.com/UPS-API/api-documentation are readable. `UPSTrackAlert.yaml` is 32k characters, and its `paths` start at 11.3k, so before parts existed the 12k cap hid the endpoints. That spec also nests `webhooks:`/`TrackingEvent` under `paths` (the outline handles it).
 - Git Bash rewrites `/api-integration-scout` into a Windows path. Use `MSYS_NO_PATHCONV=1` when passing the base path from Bash (PowerShell and CI are unaffected).
 - Deploy with a dedicated key from the "scout-demo" workspace (monthly spend limit), never the local key.
 - `MemoryStore` limit counters reset on restart. Hosts that scale to zero need a persistent store (e.g. Redis or a volume).
