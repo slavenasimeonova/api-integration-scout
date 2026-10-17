@@ -9,6 +9,7 @@ export const STEP_META: Record<ProgressStep, { label: string; tone: Tone }> = {
   page_skipped: { label: "skip", tone: "missing" },
   low_text_warning: { label: "js page?", tone: "warn" },
   page_truncated: { label: "truncated", tone: "warn" },
+  sitemap_checked: { label: "sitemap", tone: "neutral" },
   base_url_found: { label: "base url", tone: "found" },
   auth_found: { label: "auth", tone: "found" },
   endpoint_found: { label: "endpoint", tone: "found" },

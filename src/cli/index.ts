@@ -7,7 +7,9 @@ import { buildOutputs } from "../generators/index.js";
 const USAGE = `Usage: npm run scout -- <docs-url> [options]
 
 Options:
-  --max-pages <n>   Pages to fetch (default 15, env SCOUT_MAX_PAGES)
+  --goal "<text>"   Analyze only what this goal needs (up to 300 characters),
+                    e.g. "subscribe to tracking events and receive them by webhook"
+  --max-pages <n>   Pages, or parts of long pages, to read (default 15, env SCOUT_MAX_PAGES)
   --model <id>      Model id (default claude-sonnet-5-5, env SCOUT_MODEL)
   --out <dir>       Output directory (default outputs)
   --json            Print progress events as JSON lines
@@ -21,6 +23,7 @@ function parseCli(argv: string[]) {
     allowPositionals: true,
     options: {
       "max-pages": { type: "string" },
+      goal: { type: "string" },
       model: { type: "string" },
       out: { type: "string", default: "outputs" },
       json: { type: "boolean", default: false },
@@ -34,7 +37,7 @@ function parseCli(argv: string[]) {
     overrides.maxPages = n;
   }
   if (values.model) overrides.model = values.model;
-  return { url: positionals[0], help: values.help, outDir: values.out, json: values.json, overrides };
+  return { url: positionals[0], goal: values.goal, help: values.help, outDir: values.out, json: values.json, overrides };
 }
 
 const MARKERS: Partial<Record<ProgressEvent["step"], string>> = {
@@ -43,6 +46,7 @@ const MARKERS: Partial<Record<ProgressEvent["step"], string>> = {
   page_skipped: "[skip]",
   low_text_warning: "[warn]",
   page_truncated: "[warn]",
+  sitemap_checked: "[map]",
   endpoint_host_corrected: "[fix]",
   endpoint_host_ambiguous: "[warn]",
   budget_exceeded: "[STOP]",
@@ -123,14 +127,14 @@ async function main(): Promise<number> {
   }
 
   try {
-    const analysis = await runScout(cli.url, { config, onEvent: createPrinter(cli.json), signal: controller.signal });
+    const analysis = await runScout(cli.url, { config, goal: cli.goal, onEvent: createPrinter(cli.json), signal: controller.signal });
     const { slug, files, postmanValidation } = buildOutputs(analysis);
     const dir = path.join(outRoot, slug);
     await mkdir(dir, { recursive: true });
     for (const [name, content] of Object.entries(files)) {
       await writeFile(path.join(dir, name), content, "utf8");
     }
-    await logRun(outRoot, { url: cli.url, status: "success", slug, ...analysis.run });
+    await logRun(outRoot, { url: cli.url, ...(analysis.goal ? { goal: analysis.goal } : {}), status: "success", slug, ...analysis.run });
 
     console.log(`\n${formatUsage(analysis.run)}`);
     console.log(`\nSaved to ${dir}`);
@@ -149,7 +153,7 @@ async function main(): Promise<number> {
     if (err instanceof ScoutError) {
       console.error(`\nFailed (${err.reason}): ${err.message}`);
       if (err.run) console.error(formatUsage(err.run));
-      await logRun(outRoot, { url: cli.url, status: "failed", reason: err.reason, ...err.run }).catch(() => {});
+      await logRun(outRoot, { url: cli.url, ...(cli.goal ? { goal: cli.goal } : {}), status: "failed", reason: err.reason, ...err.run }).catch(() => {});
       return 1;
     }
     console.error(`\nUnexpected error: ${err instanceof Error ? err.message : String(err)}`);

@@ -6,6 +6,8 @@ export type ExtractedPage = {
   title: string;
   text: string;
   links: PageLink[];
+  /** h1 to h3 texts in page order, used to point the agent at sections that match its goal. */
+  headings: string[];
   /**
    * True when the page shows signs of client-side rendering: a <noscript>
    * notice asking for JavaScript, or an empty SPA mount element.
@@ -40,6 +42,11 @@ export function extractPage(html: string, pageUrl: string): ExtractedPage {
     links.push({ url, text: collapse($(el).text()).slice(0, 100) });
   });
 
+  const headings = $("h1,h2,h3")
+    .toArray()
+    .map((el) => collapse($(el).text()).slice(0, 120))
+    .filter(Boolean);
+
   $("script,style,noscript,svg,iframe,template,link,meta").remove();
   $("br").replaceWith("\n");
   $(BLOCK_SELECTOR).each((_, el) => {
@@ -54,7 +61,7 @@ export function extractPage(html: string, pageUrl: string): ExtractedPage {
     .filter((line) => line.length > 0)
     .join("\n");
 
-  return { title, text, links, looksClientRendered };
+  return { title, text, links, headings, looksClientRendered };
 }
 
 /** Resolves a link against its page and strips the #fragment. Returns null for non-http(s). */

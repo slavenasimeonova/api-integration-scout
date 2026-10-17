@@ -8,6 +8,25 @@ export const STATUS_LABEL: Record<FindingStatus, string> = {
 };
 
 /** Folder-safe slug for outputs/<api-name>/. */
+/**
+ * Output folder name. Goal runs get the goal's first words appended, so a goal
+ * run never overwrites a full analysis, and reruns of one goal share a folder.
+ */
+export function outputSlug(analysis: Pick<Analysis, "apiName" | "docsUrl" | "goal">): string {
+  const base = apiSlug(analysis);
+  if (!analysis.goal) return base;
+  const words = analysis.goal
+    .normalize("NFKD")
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean)
+    .slice(0, 6)
+    .join("-")
+    .slice(0, 50)
+    .replace(/-+$/, "");
+  return words ? `${base}--${words}` : base;
+}
+
 export function apiSlug(analysis: Pick<Analysis, "apiName" | "docsUrl">): string {
   const fromName = analysis.apiName
     .normalize("NFKD")

@@ -135,6 +135,16 @@ export const AgentOutput = z.object({
   versioning: finding(VersioningValue),
   risks: z.array(AgentRisk),
   openQuestions: z.array(z.string()),
+  pagesConsidered: z
+    .array(
+      z.object({
+        url: z.string().describe("A page you read, or a link you saw and chose not to read"),
+        relevant: z.boolean().describe("Whether the page matters for the goal"),
+        reason: z.string().describe("One short sentence: why it is or isn't relevant to the goal"),
+      }),
+    )
+    .optional()
+    .describe("Goal mode only: every page you read and every promising link you skipped, with your reason. Omit without a goal."),
 });
 export type AgentOutput = z.infer<typeof AgentOutput>;
 
@@ -182,8 +192,33 @@ export type RunStats = {
   costUsd: number;
 };
 
+/** Goal mode: a page the ranking or the agent considered, and what happened to it. */
+export type ConsideredPage = {
+  url: string;
+  /** Keyword score for the goal (relevance.ts scoreLink): 2 per term in the link text, 1 per term in the path, 1 for auth. */
+  score: number;
+  matched: string[];
+  /** read = every part; partly = some parts of a long page; not_read = seen as a link or sitemap entry only. */
+  read: "read" | "partly" | "failed" | "not_read";
+  /** The agent's judgment and reason, when it gave one for this URL. */
+  relevant?: boolean;
+  reason?: string;
+};
+
+/** Goal mode: how pages were found and chosen. */
+export type Discovery = {
+  /** The goal's keywords after stemming. */
+  terms: string[];
+  /** Sitemap files read, how many same-site URLs they listed, and how many matched the goal. Null when none was found. */
+  sitemap: { files: string[]; urls: number; matches: number } | null;
+  pages: ConsideredPage[];
+};
+
 /** The final, verified result saved as analysis.json. */
-export type Analysis = Omit<AgentOutput, "risks" | "endpoints"> & {
+export type Analysis = Omit<AgentOutput, "risks" | "endpoints" | "pagesConsidered"> & {
+  /** Goal mode: the user's goal; the analysis covers only what it needs. */
+  goal?: string;
+  discovery?: Discovery;
   /** Endpoints after verification and the host check (see hosts.ts). */
   endpoints: AnalysisEndpoint[];
   schemaVersion: 1;

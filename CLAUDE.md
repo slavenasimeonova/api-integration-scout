@@ -80,7 +80,14 @@ examples/ipinfo/ Real run output (regenerated offline with the current host chec
   - `request:fulfil` always shows the URL, code name and time and asks before the paid run and again before git push. It uses the SSRF-safe fetcher (the URL is fetched from the owner's machine), and published results never contain the code name.
   - Netlify charges 15 credits per production deploy (Free: 300 a month), so `netlify.toml` has an `ignore` rule limiting builds to the function's inputs. Keep that list in sync if the function imports new files.
   - Kill switch: `REQUESTS_ENABLED=off` plus a redeploy (env vars reach functions only at deploy). Revoke a code by removing its entry and redeploying.
-- **Goal-directed scouting (approved 2026-10-13, in progress; plan: commits 1 to 7).** Step 1 is done: long pages are no longer cut off.
+- **Goal-directed scouting (approved 2026-10-13, in progress; plan: commits 1 to 7).**
+  - Step 2: `--goal` (`runScout({ goal })`, at most 300 characters, `normalizeGoal`).
+    - **Ranking in code** (`relevance.ts`): crude stemming (7-letter prefix, so subscribe/subscription meet), 2 points per keyword in the link text, 1 per keyword only in the URL path, and 1 point for auth links, because goals rarely mention auth.
+    - **What the agent sees:** fetched pages list same-site links ranked, with `[score: terms]`, plus the headings that match. The sitemap (robots.txt, then `/sitemap.xml`, an index one level deep, at most 3 files, skipped on GitHub) is ranked before the run, and its best 25 matches go in the user prompt.
+    - **Report:** `analysis.discovery` holds the pages read, the top 25 unread candidates, and the agent's `pagesConsidered` reasons. Reasons for URLs that were never read or seen are dropped with a warning.
+    - **Output:** goal runs write to `outputs/<api>--<goal words>/`. Without a goal, nothing changes: no `goal`/`discovery` fields and the same prompts.
+    - The goal sits inside `<<<GOAL ... GOAL>>>`, and `GOAL_INSTRUCTIONS` say it can't change the rules. In request mode the goal comes from a visitor.
+  - Step 1 is done: long pages are no longer cut off.
   - `fetch_page(url, part)` serves pages in parts of `maxPageChars`, split at line breaks (`splitParts`). Each part takes one slot of the page limit. A page counts as truncated only if some parts were never read; `reportUnreadParts()` emits `page_truncated` once the agent finishes.
   - OpenAPI/Swagger specs (YAML or JSON) start with an outline built in code (`spec-outline.ts`, no YAML parser) that names the part holding each path, webhook, security scheme and schema.
   - Docs on GitHub: blob links are fetched as raw files (`fetchableUrl`), and when the root URL is on GitHub, "same site" means the same owner on github.com or raw.githubusercontent.com.

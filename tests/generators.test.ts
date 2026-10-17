@@ -10,6 +10,7 @@ import {
   buildPostmanCollection,
   buildPostmanEnvironment,
   buildSequenceDiagram,
+  outputSlug,
   validatePostmanCollection,
 } from "../src/generators/index.js";
 import { ACME_ROOT, createFixtureFetcher } from "./helpers/fixtures.js";
@@ -196,6 +197,12 @@ describe("buildOutputs", () => {
 
   it("falls back to the hostname for the slug", () => {
     expect(apiSlug({ apiName: "!!!", docsUrl: "https://docs.example.com/x" })).toBe("docs-example-com");
+  });
+
+  it("gives goal runs their own folder, so they never overwrite a full analysis", () => {
+    const goal = "Track Alert: subscribe to tracking events for a shipment and receive status updates by webhook";
+    expect(buildOutputs({ ...analysis, goal }).slug).toBe("acme-weather--track-alert-subscribe-to-tracking-events");
+    expect(outputSlug({ apiName: "UPS", docsUrl: "https://x.example", goal: "!!!" })).toBe("ups");
   });
 });
 

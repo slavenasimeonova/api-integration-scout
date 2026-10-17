@@ -4,6 +4,7 @@ import type { ScoutConfig } from "./config.js";
 import { AGENT_STEPS, type createEmitter } from "./events.js";
 import type { Fetcher } from "./fetcher.js";
 import { extractPage, fetchableUrl, isSameSite, normalizeUrl, type PageLink } from "./html.js";
+import { matchingHeadings, scoreLink } from "./relevance.js";
 import { formatOutline, specOutline } from "./spec-outline.js";
 import type { PageVisit } from "./schema.js";
 
@@ -19,10 +20,21 @@ export type ToolResult = { text: string; isError: boolean };
 
 export type StoredPage = { url: string; title: string; text: string };
 
+/** A page the goal ranking saw: a link on a fetched page, or a sitemap entry. */
+export type Candidate = {
+  url: string;
+  text: string;
+  score: number;
+  matched: string[];
+  /** The page that linked to it, or "sitemap". */
+  foundOn: string;
+};
+
 /** A fetched page, split into parts of at most maxPageChars that the agent reads one at a time. */
 type LoadedPage = {
   stored: StoredPage;
   links: PageLink[];
+  headings: string[];
   lowText: boolean;
   /** [start, end) offsets of each part in stored.text. */
   parts: [number, number][];
@@ -66,13 +78,33 @@ export class DocsSession {
   private fetched = 0;
   /** One load per URL, shared by parallel calls for different parts of the same page. */
   private readonly loads = new Map<string, Promise<LoadedPage | ToolResult>>();
+  /** Goal mode: every link and sitemap entry scored against the goal, best score per URL. */
+  private readonly seen = new Map<string, Candidate>();
 
   constructor(
     private readonly rootUrl: string,
     private readonly fetcher: Fetcher,
     private readonly config: ScoutConfig,
     private readonly emit: Emit,
+    /** The goal's keywords (relevance.ts goalTerms); empty = no goal, links are listed in page order. */
+    private readonly goalTerms: string[] = [],
   ) {}
+
+  /** Goal mode: what the ranking saw, best first. */
+  get candidates(): Candidate[] {
+    return [...this.seen.values()].sort((a, b) => b.score - a.score);
+  }
+
+  /** Scores links (or sitemap URLs) for the goal and remembers the best score per URL. */
+  rank(links: PageLink[], foundOn: string): Candidate[] {
+    const ranked = links.map((l, i) => ({ ...scoreLink(l, this.goalTerms), url: l.url, text: l.text, foundOn, i }));
+    ranked.sort((a, b) => b.score - a.score || a.i - b.i);
+    return ranked.map(({ i: _i, ...c }) => {
+      const prev = this.seen.get(c.url);
+      if (!prev || c.score > prev.score) this.seen.set(c.url, c);
+      return c;
+    });
+  }
 
   get pagesFetched(): number {
     return this.attempts;
@@ -167,7 +199,7 @@ export class DocsSession {
     const isHtml = /html/i.test(response.contentType) || /^\s*</.test(response.body);
     const extracted = isHtml
       ? extractPage(response.body, response.finalUrl)
-      : { title: "", text: response.body.trim(), links: [] as PageLink[], looksClientRendered: false };
+      : { title: "", text: response.body.trim(), links: [] as PageLink[], headings: [] as string[], looksClientRendered: false };
 
     const stored: StoredPage = { url: response.finalUrl, title: extracted.title, text: extracted.text };
     for (const key of new Set([requested, url, response.finalUrl])) this.pages.set(key, stored);
@@ -193,7 +225,7 @@ export class DocsSession {
         textLength: len,
       });
     }
-    return { stored, links: extracted.links, lowText, parts, outline, served: new Set(), visit };
+    return { stored, links: extracted.links, headings: extracted.headings, lowText, parts, outline, served: new Set(), visit };
   }
 
   private serve(url: string, page: LoadedPage, part: number): ToolResult {
@@ -251,9 +283,21 @@ export class DocsSession {
     if (part === 1) {
       const siteLinks = page.links
         .map((l) => ({ ...l, url: fetchableUrl(l.url) }))
-        .filter((l) => isSameSite(l.url, this.rootUrl))
-        .slice(0, MAX_LINKS_PER_PAGE);
-      lines.push("Same-site links:", ...(siteLinks.length ? siteLinks.map((l) => `- ${l.text || "(no text)"}: ${l.url}`) : ["(none)"]));
+        .filter((l) => isSameSite(l.url, this.rootUrl) && l.url !== url);
+      if (this.goalTerms.length) {
+        const sections = matchingHeadings(page.headings, this.goalTerms);
+        if (sections.length) lines.push(`Sections on this page that match the goal: ${sections.join(" | ")}`);
+        const ranked = this.rank(siteLinks, url).slice(0, MAX_LINKS_PER_PAGE);
+        lines.push(
+          "Same-site links, ranked by goal keywords ([score: matched terms]; a hint from keyword matching, not a judgment):",
+          ...(ranked.length
+            ? ranked.map((l) => `- ${l.score ? `[${l.score}: ${l.matched.join(", ")}] ` : ""}${l.text || "(no text)"}: ${l.url}`)
+            : ["(none)"]),
+        );
+      } else {
+        const listed = siteLinks.slice(0, MAX_LINKS_PER_PAGE);
+        lines.push("Same-site links:", ...(listed.length ? listed.map((l) => `- ${l.text || "(no text)"}: ${l.url}`) : ["(none)"]));
+      }
     }
     lines.push(`Pages fetched: ${this.attempts}/${this.config.maxPages}`);
     return lines.join("\n");

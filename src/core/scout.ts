@@ -3,7 +3,9 @@ import { TokenBudget } from "./budget.js";
 import { loadConfig, type ScoutConfig } from "./config.js";
 import { createEmitter, type OnEvent } from "./events.js";
 import { createHttpFetcher, type Fetcher } from "./fetcher.js";
-import { SYSTEM_PROMPT, buildUserPrompt } from "./prompt.js";
+import { GOAL_INSTRUCTIONS, SYSTEM_PROMPT, buildUserPrompt } from "./prompt.js";
+import { buildDiscovery, goalTerms, normalizeGoal } from "./relevance.js";
+import { discoverSitemap } from "./sitemap.js";
 import { AgentOutput, agentOutputJsonSchema, type Analysis, type Risk, type RunStats } from "./schema.js";
 import { ALLOWED_TOOLS, DocsSession, MCP_SERVER_NAME, createScoutMcpServer } from "./tools.js";
 import { applyCodeRules } from "./rules.js";
@@ -29,10 +31,13 @@ export type RunScoutOptions = {
   runner?: AgentRunner;
   /** Lets a caller (e.g. a web request) cancel the run. */
   signal?: AbortSignal;
+  /** Goal mode: what the user wants to build; pages are ranked for it and the analysis is scoped to it. */
+  goal?: string;
 };
 
 export type ScoutFailureReason =
   | "invalid_url"
+  | "invalid_goal"
   | "budget_exceeded"
   | "max_budget_usd"
   | "max_turns"
@@ -54,6 +59,9 @@ export class ScoutError extends Error {
   }
 }
 
+/** Best sitemap matches listed in the first message (goal mode). */
+const SITEMAP_MATCHES_IN_PROMPT = 25;
+
 const JS_RENDERING_RISK = "docs page may require JavaScript rendering; content may be incomplete";
 
 /** Runs the scout agent on a docs URL and returns a verified analysis. Writes no files. */
@@ -73,18 +81,54 @@ export async function runScout(docsUrl: string, opts: RunScoutOptions = {}): Pro
     throw err;
   }
 
-  const session = new DocsSession(rootUrl, opts.fetcher ?? createHttpFetcher(config.fetchTimeoutMs), config, emit);
+  let goal: string | undefined;
+  try {
+    goal = normalizeGoal(opts.goal);
+  } catch (e) {
+    const err = new ScoutError((e as Error).message, "invalid_goal");
+    emit({ step: "run_failed", detail: err.message });
+    throw err;
+  }
+  const terms = goal ? goalTerms(goal) : [];
+  const fetcher = opts.fetcher ?? createHttpFetcher(config.fetchTimeoutMs);
+  const session = new DocsSession(rootUrl, fetcher, config, emit, terms);
   const budget = new TokenBudget(config.maxTokens);
   const abortController = new AbortController();
   const onExternalAbort = () => abortController.abort();
   opts.signal?.addEventListener("abort", onExternalAbort, { once: true });
 
-  emit({ step: "run_started", detail: `Scouting ${rootUrl} with ${config.model}`, url: rootUrl, model: config.model });
+  emit({
+    step: "run_started",
+    detail: `Scouting ${rootUrl} with ${config.model}${goal ? ` for the goal "${goal}"` : ""}`,
+    url: rootUrl,
+    model: config.model,
+  });
+
+  // Goal mode: the sitemap (if the site has one) is ranked before the agent starts.
+  let sitemap: NonNullable<Analysis["discovery"]>["sitemap"] = null;
+  let sitemapMatches: ReturnType<DocsSession["rank"]> = [];
+  if (goal) {
+    const found = await discoverSitemap(rootUrl, fetcher);
+    if (found.sitemaps.length) {
+      const ranked = session.rank(found.urls.map((url) => ({ url, text: "" })), "sitemap");
+      const matches = ranked.filter((c) => c.score > 0);
+      sitemapMatches = matches.slice(0, SITEMAP_MATCHES_IN_PROMPT);
+      sitemap = { files: found.sitemaps, urls: found.urls.length, matches: matches.length };
+      emit({
+        step: "sitemap_checked",
+        detail: `Sitemap: ${found.urls.length} pages, ${matches.length} match the goal`,
+        urls: found.urls.length,
+        matches: matches.length,
+      });
+    } else {
+      emit({ step: "sitemap_checked", detail: "No sitemap found; ranking links as pages are read", urls: 0, matches: 0 });
+    }
+  }
 
   const options: Options = {
     model: config.model,
     effort: config.effort,
-    systemPrompt: SYSTEM_PROMPT,
+    systemPrompt: goal ? SYSTEM_PROMPT + GOAL_INSTRUCTIONS : SYSTEM_PROMPT,
     tools: [],
     allowedTools: ALLOWED_TOOLS,
     mcpServers: { [MCP_SERVER_NAME]: createScoutMcpServer(session) },
@@ -106,7 +150,7 @@ export async function runScout(docsUrl: string, opts: RunScoutOptions = {}): Pro
   let thrown: unknown;
 
   try {
-    for await (const message of runner({ prompt: buildUserPrompt(rootUrl, config), options, tools: session })) {
+    for await (const message of runner({ prompt: buildUserPrompt(rootUrl, config, goal, sitemapMatches), options, tools: session })) {
       if (message.type === "assistant" && message.message?.usage) {
         const crossed = budget.record(message.message.id, message.message.usage);
         const { budgetedTokens } = budget.totals;
@@ -223,16 +267,28 @@ export async function runScout(docsUrl: string, opts: RunScoutOptions = {}): Pro
   }
   if (session.pagesFetched >= config.maxPages) warnings.push(`Page limit of ${config.maxPages} reached; some docs may not have been read`);
 
+  const { pagesConsidered, ...findings } = output;
+  let discovery: Analysis["discovery"];
+  if (goal) {
+    const built = buildDiscovery({ terms, visits: session.visits, candidates: session.candidates, notes: pagesConsidered, sitemap });
+    discovery = built.discovery;
+    if (built.dropped.length) {
+      warnings.push(`${built.dropped.length} relevance note(s) left out: the agent neither read nor saw ${built.dropped.join(", ")}`);
+    }
+  }
+
   const analysis: Analysis = {
     schemaVersion: 1,
     docsUrl: rootUrl,
     generatedAt: new Date().toISOString(),
-    ...output,
+    ...(goal ? { goal } : {}),
+    ...findings,
     auth: ruled.auth,
     authAlternatives: ruled.authAlternatives,
     endpoints: ruled.endpoints,
     risks,
     pagesVisited: session.visits,
+    ...(discovery ? { discovery } : {}),
     warnings,
     run,
   };

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { DEFAULT_CONFIG } from "../src/core/config.js";
 import { createEmitter, type ProgressEvent } from "../src/core/events.js";
 import type { Fetcher } from "../src/core/fetcher.js";
+import { goalTerms } from "../src/core/relevance.js";
 import { DocsSession, createScoutMcpServer, splitParts } from "../src/core/tools.js";
 import { ACME_ROOT, createFixtureFetcher } from "./helpers/fixtures.js";
 
@@ -246,6 +247,28 @@ describe("long pages and API specs", () => {
     const third = await session.fetchPage(RAW_SPEC, 3);
     expect(third).toMatchObject({ isError: true, text: expect.stringContaining("Page limit of 2 reached") });
     expect(session.visits[0]).toMatchObject({ partsRead: 2, truncated: true });
+  });
+});
+
+describe("goal mode", () => {
+  it("ranks same-site links by the goal's keywords and lists matching sections", async () => {
+    const session = new DocsSession(ACME_ROOT, createFixtureFetcher(), DEFAULT_CONFIG, createEmitter(() => {}), goalTerms("authenticate and receive webhooks"));
+    const result = await session.fetchPage(ACME_ROOT);
+    const links = result.text.split("ranked by goal keywords")[1]!.split("\n").filter((l) => l.startsWith("- "));
+
+    expect(links[0]).toBe(`- [2: webhook] Webhooks: ${ACME_ROOT}webhooks`);
+    // Unmatched links follow in page order, without a score; the page's own link is left out.
+    expect(links.slice(1).map((l) => l.replace(/:.*/, ""))).toEqual(["- Endpoints", "- Rate limits", "- Dashboard", "- Status"]);
+    expect(result.text).toContain("Sections on this page that match the goal: Authentication");
+    expect(session.candidates[0]).toMatchObject({ url: `${ACME_ROOT}webhooks`, score: 2, foundOn: ACME_ROOT });
+  });
+
+  it("lists links in page order without a goal", async () => {
+    const { session } = setup();
+    const result = await session.fetchPage(ACME_ROOT);
+    expect(result.text).toContain("Same-site links:\n- Endpoints:");
+    expect(result.text).not.toContain("ranked");
+    expect(session.candidates).toEqual([]);
   });
 });
 
