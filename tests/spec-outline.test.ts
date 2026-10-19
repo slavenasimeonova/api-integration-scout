@@ -13,7 +13,7 @@ describe("specOutline (YAML)", () => {
       "server: https://sandbox.parcelpost.example/api/alerts/{version}",
       "server: https://api.parcelpost.example/api/alerts/{version}",
       "path: POST /subscription/{type}/package: Create subscriptions by tracking number.",
-      // Like UPS's spec, the webhook sits (wrongly) under paths; it is still listed.
+      // Some real specs put the webhook (wrongly) under paths; it is still listed.
       "path: POST TrackingEvent: Tracking Event",
       "security: oauth2",
       "schema: SubscriptionRequest",

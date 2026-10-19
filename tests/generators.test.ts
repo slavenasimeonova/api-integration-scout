@@ -200,9 +200,9 @@ describe("buildOutputs", () => {
   });
 
   it("gives goal runs their own folder, so they never overwrite a full analysis", () => {
-    const goal = "Track Alert: subscribe to tracking events for a shipment and receive status updates by webhook";
-    expect(buildOutputs({ ...analysis, goal }).slug).toBe("acme-weather--track-alert-subscribe-to-tracking-events");
-    expect(outputSlug({ apiName: "UPS", docsUrl: "https://x.example", goal: "!!!" })).toBe("ups");
+    const goal = "Receive a webhook when a new issue is opened in my repository and verify the webhook signature";
+    expect(buildOutputs({ ...analysis, goal }).slug).toBe("acme-weather--receive-a-webhook-when-a-new");
+    expect(outputSlug({ apiName: "GitHub", docsUrl: "https://x.example", goal: "!!!" })).toBe("github");
   });
 });
 

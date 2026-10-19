@@ -19,7 +19,7 @@ const STOPWORDS = new Set(
   ).split(" "),
 );
 
-/** Splits text into lowercase word tokens; camelCase and digits split too ("TrackAlert" -> track, alert). */
+/** Splits text into lowercase word tokens; camelCase and digits split too ("IssueWebhooks" -> issue, webhooks). */
 export function tokens(text: string): string[] {
   return text
     .replace(/([a-z])([A-Z])/g, "$1 $2")
@@ -82,7 +82,7 @@ function matchTerms(words: string[], terms: string[]): string[] {
 
 /**
  * Scores a link for the goal: 2 per term in the link text, 1 per term only in
- * the URL path (file and folder names, e.g. UPSTrackAlert.yaml). Query strings
+ * the URL path (file and folder names, e.g. IssueWebhooks.yaml). Query strings
  * and the host are ignored.
  */
 export function scoreLink(link: { url: string; text: string }, terms: string[]): Match {

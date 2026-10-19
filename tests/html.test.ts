@@ -58,19 +58,19 @@ describe("isSameSite", () => {
 });
 
 describe("docs on GitHub", () => {
-  const root = "https://github.com/UPS-API/api-documentation";
+  const root = "https://github.com/example-org/api-specs";
 
   it("treats the same owner on github.com and raw.githubusercontent.com as one site", () => {
-    expect(isSameSite("https://github.com/UPS-API/api-documentation/blob/main/A.yaml", root)).toBe(true);
-    expect(isSameSite("https://raw.githubusercontent.com/UPS-API/api-documentation/main/A.yaml", root)).toBe(true);
-    expect(isSameSite("https://github.com/ups-api/UPS-SDKs", root)).toBe(true);
+    expect(isSameSite("https://github.com/example-org/api-specs/blob/main/A.yaml", root)).toBe(true);
+    expect(isSameSite("https://raw.githubusercontent.com/example-org/api-specs/main/A.yaml", root)).toBe(true);
+    expect(isSameSite("https://github.com/Example-Org/sdks", root)).toBe(true);
   });
 
   it("rejects other owners and other GitHub hosts", () => {
     expect(isSameSite("https://github.com/someone-else/api-documentation", root)).toBe(false);
     expect(isSameSite("https://raw.githubusercontent.com/someone-else/x/main/A.yaml", root)).toBe(false);
     expect(isSameSite("https://docs.github.com/en", root)).toBe(false);
-    expect(isSameSite("https://github.com/features", "https://github.com/UPS-API")).toBe(false);
+    expect(isSameSite("https://github.com/features", "https://github.com/example-org")).toBe(false);
   });
 
   it("keeps the subdomain rule for sites that aren't on GitHub", () => {
@@ -79,10 +79,10 @@ describe("docs on GitHub", () => {
   });
 
   it("fetches GitHub file pages as raw files", () => {
-    expect(fetchableUrl("https://github.com/UPS-API/api-documentation/blob/main/UPSTrackAlert.yaml")).toBe(
-      "https://raw.githubusercontent.com/UPS-API/api-documentation/main/UPSTrackAlert.yaml",
+    expect(fetchableUrl("https://github.com/example-org/api-specs/blob/main/IssueWebhooks.yaml")).toBe(
+      "https://raw.githubusercontent.com/example-org/api-specs/main/IssueWebhooks.yaml",
     );
-    expect(fetchableUrl("https://github.com/UPS-API/api-documentation")).toBe("https://github.com/UPS-API/api-documentation");
+    expect(fetchableUrl("https://github.com/example-org/api-specs")).toBe("https://github.com/example-org/api-specs");
     expect(fetchableUrl("https://docs.acmeweather.example/a/b/blob/main/x")).toBe("https://docs.acmeweather.example/a/b/blob/main/x");
   });
 });

@@ -90,7 +90,7 @@ export const EnvironmentValue = z.object({
 
 /** One step of the integration flow, in order. */
 export const FlowStepValue = z.object({
-  action: z.string().describe("Short description, e.g. 'Get an OAuth access token' or 'UPS posts a tracking event'"),
+  action: z.string().describe("Short description, e.g. 'Get an OAuth access token' or 'GitHub posts the issues event'"),
   direction: z
     .enum(["app_to_api", "api_to_app", "api_to_webhook", "on_your_side"])
     .describe(

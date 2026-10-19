@@ -13,12 +13,12 @@ import {
 import type { PageVisit } from "../src/core/schema.js";
 import { discoverSitemap } from "../src/core/sitemap.js";
 
-const UPS_GOAL = "Track Alert: subscribe to tracking events for a shipment and receive status updates by webhook";
-const SPECS = "https://github.com/UPS-API/api-documentation/blob/main/";
+const GOAL = "Receive a webhook when a new issue is opened in my repository and verify the webhook signature";
+const SPECS = "https://github.com/example-org/api-specs/blob/main/";
 
 describe("normalizeGoal", () => {
   it("collapses whitespace and control characters", () => {
-    expect(normalizeGoal("  Track\n\tAlert \u0007 webhook  ")).toBe("Track Alert webhook");
+    expect(normalizeGoal("  New\n\tissue \u0007 webhook  ")).toBe("New issue webhook");
   });
 
   it("treats an empty goal as no goal and rejects long ones", () => {
@@ -30,26 +30,26 @@ describe("normalizeGoal", () => {
 
 describe("goalTerms and stem", () => {
   it("keeps the goal's keywords, stemmed, without stopwords or duplicates", () => {
-    expect(goalTerms(UPS_GOAL)).toEqual(["track", "alert", "subscri", "event", "shipmen", "statu", "updat", "webhook"]);
+    expect(goalTerms(GOAL)).toEqual(["webhook", "issu", "open", "reposit", "verify", "signatu"]);
   });
 
   it("brings word forms together", () => {
     expect(new Set(["subscribe", "subscription", "subscriptions"].map(stem)).size).toBe(1);
-    expect(stem("tracking")).toBe(stem("track"));
+    expect(stem("issues")).toBe(stem("issue"));
     expect(stem("updates")).toBe(stem("update"));
     expect(stem("webhooks")).toBe("webhook");
   });
 });
 
 describe("scoreLink", () => {
-  const terms = goalTerms(UPS_GOAL);
+  const terms = goalTerms(GOAL);
 
   it("ranks the goal's spec above unrelated ones, splitting camelCase file names", () => {
     const score = (name: string) => scoreLink({ url: SPECS + name, text: name }, terms).score;
-    expect(score("UPSTrackAlert.yaml")).toBe(4);
-    expect(score("Tracking.yaml")).toBe(2);
-    expect(score("Shipping.yaml")).toBe(0);
-    expect(score("Pickup.yaml")).toBe(0);
+    expect(score("IssueWebhooks.yaml")).toBe(4);
+    expect(score("Issues.yaml")).toBe(2);
+    expect(score("Billing.yaml")).toBe(0);
+    expect(score("Pulls.yaml")).toBe(0);
   });
 
   it("weighs link text above the URL path and ignores the host and query", () => {
@@ -137,7 +137,7 @@ describe("discoverSitemap", () => {
 
   it("is skipped for docs on GitHub", async () => {
     const fetcher = siteFetcher({});
-    expect(await discoverSitemap("https://github.com/UPS-API/api-documentation", fetcher)).toEqual({ sitemaps: [], urls: [] });
+    expect(await discoverSitemap("https://github.com/example-org/api-specs", fetcher)).toEqual({ sitemaps: [], urls: [] });
     expect(fetcher.requested).toEqual([]);
   });
 
@@ -150,30 +150,30 @@ describe("discoverSitemap", () => {
 });
 
 describe("buildDiscovery", () => {
-  const terms = goalTerms(UPS_GOAL);
-  const RAW = "https://raw.githubusercontent.com/UPS-API/api-documentation/main/";
+  const terms = goalTerms(GOAL);
+  const RAW = "https://raw.githubusercontent.com/example-org/api-specs/main/";
   const visit = (url: string, extra: Partial<PageVisit> = {}): PageVisit => ({ url, status: "fetched", textLength: 1000, lowText: false, truncated: false, ...extra });
   const candidate = (name: string, score: number, matched: string[]) => ({ url: RAW + name, text: name, score, matched, foundOn: "x" });
 
   it("lists pages read, then the best unread candidates, with the agent's reasons", () => {
     const { discovery, dropped } = buildDiscovery({
       terms,
-      visits: [visit("https://github.com/UPS-API/api-documentation"), visit(RAW + "UPSTrackAlert.yaml", { truncated: true, parts: 3, partsRead: 2 })],
-      candidates: [candidate("UPSTrackAlert.yaml", 4, ["track", "alert"]), candidate("Tracking.yaml", 2, ["track"]), candidate("Pickup.yaml", 0, [])],
+      visits: [visit("https://github.com/example-org/api-specs"), visit(RAW + "IssueWebhooks.yaml", { truncated: true, parts: 3, partsRead: 2 })],
+      candidates: [candidate("IssueWebhooks.yaml", 4, ["webhook", "issu"]), candidate("Issues.yaml", 2, ["issu"]), candidate("Billing.yaml", 0, [])],
       notes: [
-        { url: SPECS + "UPSTrackAlert.yaml", relevant: true, reason: "Subscription endpoint and webhook." },
-        { url: RAW + "Tracking.yaml", relevant: false, reason: "Polling API; the goal uses webhooks." },
-        { url: RAW + "Pickup.yaml", relevant: false, reason: "Pickups, not tracking." },
+        { url: SPECS + "IssueWebhooks.yaml", relevant: true, reason: "The issues webhook and its payload." },
+        { url: RAW + "Issues.yaml", relevant: false, reason: "REST API for issues; the goal uses webhooks." },
+        { url: RAW + "Billing.yaml", relevant: false, reason: "Billing, not issues." },
         { url: "https://made-up.example/page", relevant: true, reason: "Never seen." },
       ],
       sitemap: null,
     });
     expect(discovery.pages).toEqual([
-      { url: "https://github.com/UPS-API/api-documentation", score: 0, matched: [], read: "read" },
-      { url: RAW + "UPSTrackAlert.yaml", score: 4, matched: ["track", "alert"], read: "partly", relevant: true, reason: "Subscription endpoint and webhook." },
-      { url: RAW + "Tracking.yaml", score: 2, matched: ["track"], read: "not_read", relevant: false, reason: "Polling API; the goal uses webhooks." },
+      { url: "https://github.com/example-org/api-specs", score: 0, matched: [], read: "read" },
+      { url: RAW + "IssueWebhooks.yaml", score: 4, matched: ["webhook", "issu"], read: "partly", relevant: true, reason: "The issues webhook and its payload." },
+      { url: RAW + "Issues.yaml", score: 2, matched: ["issu"], read: "not_read", relevant: false, reason: "REST API for issues; the goal uses webhooks." },
       // Seen with score 0 and skipped on purpose: kept because the agent explained it.
-      { url: RAW + "Pickup.yaml", score: 0, matched: [], read: "not_read", relevant: false, reason: "Pickups, not tracking." },
+      { url: RAW + "Billing.yaml", score: 0, matched: [], read: "not_read", relevant: false, reason: "Billing, not issues." },
     ]);
     expect(dropped).toEqual(["https://made-up.example/page"]);
   });

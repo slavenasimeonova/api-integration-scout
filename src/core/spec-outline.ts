@@ -1,7 +1,7 @@
 /**
  * Outline of an OpenAPI/Swagger spec, built in code from the raw text (no YAML
  * parser). Long specs are read in parts, and the endpoints usually sit far past
- * the first part (UPS Track Alert: 11k characters of prose before `paths`), so
+ * the first part (one real spec had 11k characters of prose before `paths`), so
  * the agent gets a map of where each path, webhook and schema is.
  */
 

@@ -105,7 +105,7 @@ function githubOwner(url: string): string | null {
  * Same site = same host, or one host is a subdomain of the other
  * (docs.stripe.com <-> stripe.com). Sibling subdomains on shared hosts
  * (a.github.io vs b.github.io) are deliberately not treated as the same site.
- * Docs on GitHub (e.g. github.com/UPS-API/api-documentation): the same owner
+ * Docs on GitHub (e.g. github.com/<owner>/<repo>): the same owner
  * on github.com or raw.githubusercontent.com, never another owner's repos.
  */
 export function isSameSite(url: string, rootUrl: string): boolean {

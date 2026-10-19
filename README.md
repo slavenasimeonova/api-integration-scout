@@ -71,7 +71,7 @@ npm run scout -- https://docs.example.com/api
 Give Scout what you're building, and it reads only the pages that goal needs:
 
 ```bat
-npm run scout -- https://github.com/UPS-API/api-documentation --max-pages 6 --goal "Track Alert: subscribe to tracking events for a shipment and receive status updates by webhook" --postman-push
+npm run scout -- https://docs.github.com/en/webhooks --max-pages 6 --goal "Receive a webhook when a new issue is opened in my repository and verify the webhook signature" --postman-push
 ```
 
 - **Ranking in code:** the goal's keywords rank the links on each page and the sitemap (when there is one), and the agent reads what the goal needs within the page limit.
@@ -80,7 +80,7 @@ npm run scout -- https://github.com/UPS-API/api-documentation --max-pages 6 --go
 - **The collection:** only the goal's requests, with credentials and the base URL as variables. When the docs list several environments, `{{baseUrl}}` lists them and stays empty for you to choose.
 - **`--postman-push`:** puts the collection and environment straight into your workspace. It refuses to push if anything looks like a credential. To push an existing result without a paid run: `npm run postman:push -- <output folder>`.
 
-Full guide, including the Postman API key setup and the UPS notes: [docs/goal-mode.md](docs/goal-mode.md).
+Full guide, including the Postman API key setup and the GitHub webhooks example: [docs/goal-mode.md](docs/goal-mode.md).
 
 ### Configuration (`.env`)
 

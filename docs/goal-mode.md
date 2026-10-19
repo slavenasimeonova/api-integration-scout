@@ -3,8 +3,8 @@
 Instead of analyzing a whole API, give Scout the docs URL **and what you're building**. It ranks the pages for that goal, reads only the ones it needs, and writes an integration document and a Postman collection scoped to the goal. The evidence rules don't change: documented claims are verified against the fetched pages, and everything else is marked inferred or not found.
 
 ```powershell
-npm.cmd run scout -- https://github.com/UPS-API/api-documentation --max-pages 6 `
-  --goal "Track Alert: subscribe to tracking events for a shipment and receive status updates by webhook"
+npm.cmd run scout -- https://docs.github.com/en/webhooks --max-pages 6 `
+  --goal "Receive a webhook when a new issue is opened in my repository and verify the webhook signature"
 ```
 
 Add `--postman-push` to put the collection and an empty environment straight into your Postman workspace (see [Push to Postman](#push-to-postman)).
@@ -13,11 +13,11 @@ The goal is plain text, up to 300 characters. Without `--goal`, Scout works exac
 
 ## How pages are chosen
 
-1. **Keywords.** The goal's words, minus filler, are stemmed in code, so "subscribe"/"subscription" and "track"/"tracking" match. The UPS goal above gives `track, alert, subscri, event, shipmen, statu, updat, webhook`.
+1. **Keywords.** The goal's words, minus filler, are stemmed in code, so "subscribe"/"subscription" and "issue"/"issues" match. A few small synonym groups join words like "verify"/"validating". The GitHub goal above gives `webhook, issu, open, reposit, verify, signatu`.
 2. **Sitemap.** If the site has one (robots.txt `Sitemap:` lines, then `/sitemap.xml`), Scout ranks its pages before the agent starts and lists the best 25 matches in the agent's first message. It reads at most 3 sitemap files, which don't count toward the page limit. Docs on GitHub have no useful sitemap, so this step is skipped there.
 3. **Links.** Every page the agent reads lists its same-site links ranked by score:
    - 2 points per keyword in the link text
-   - 1 point per keyword only in the URL path (e.g. `UPSTrackAlert.yaml`)
+   - 1 point per keyword only in the URL path (e.g. `/webhooks/using-webhooks/validating-webhook-deliveries`)
    - 1 point for authentication pages, because goals rarely mention auth but every integration needs it
 
    Headings on the page that match the goal are listed too.
@@ -46,7 +46,7 @@ Results go to `outputs/<api>--<first words of the goal>/`, so a goal run never o
 
 | Situation | What Scout does |
 | --- | --- |
-| The docs list several environments (e.g. CIE and production) | `{{baseUrl}}` stays empty. Its description and the collection description list every option; Scout never picks one. |
+| The docs list several environments (e.g. sandbox and production) | `{{baseUrl}}` stays empty. Its description and the collection description list every option; Scout never picks one. |
 | The docs give one base URL | It is prefilled, as before. |
 | A server URL has a placeholder like `{version}` | It becomes a `{{version}}` variable for you to fill in. |
 | OAuth 2.0 client credentials with a documented token URL | Postman's OAuth helper is set up with `{{tokenUrl}}`, `{{clientId}}` and `{{clientSecret}}`. Use **Get New Access Token** in the collection's Authorization tab. With several environments, `{{tokenUrl}}` is left empty too. |
@@ -100,16 +100,19 @@ npm.cmd run postman:push -- "outputs\<api>--<goal words>"
 
 Then, in Postman: select the environment, fill in the empty values (your credentials, plus `baseUrl` and `{{version}}` if they list options), and send.
 
-## UPS Track Alert notes (checked 2026-10-13)
+## Example: GitHub webhooks (run 2026-10-19)
 
-- **developer.ups.com** is a JavaScript app: every page Scout fetches is the same shell with no text. Start from UPS's official OpenAPI specs on GitHub instead: <https://github.com/UPS-API/api-documentation>.
-- **Spec variants:** the Track Alert spec (`UPSTrackAlert.yaml`, about 32,000 characters) has its endpoint, webhook and schemas after the first 11,000 characters of product text. Scout reads it in 3 parts. There are also "Enhanced" (account-level subscriptions) and "-Ready" variants. "-Ready" only adds marketing text.
-- **Two environments:** CIE (`wwwcie.ups.com`, UPS's test environment) and production (`onlinetools.ups.com`). Expect `{{baseUrl}}` to be left for you to choose.
-- **Test only with your own free UPS developer account and its CIE (test) credentials,** never with an employer's account.
+The goal above, run with `--max-pages 6`:
+
+- **Pages read:** the webhooks overview, "Creating webhooks", "Validating webhook deliveries" and the "Webhook events and payloads" page. That last page is about 141,000 characters, so Scout serves it in 12 parts with a section map, and the agent went straight to the part holding the `issues` event.
+- **Findings:** the `issues` event with action `opened`, and signature verification with HMAC-SHA256 in the `X-Hub-Signature-256` header, quoted from the docs and verified.
+- **Your receiver isn't an endpoint:** the docs' "Payload URL" is your own server, so Scout leaves it out of the endpoint list and the Postman collection, with a warning.
+- **Abbreviated payload:** GitHub's example payload is shortened with `...`, so there is no webhook test request. The document says so.
+- **What the docs page can't show:** the events page renders only the first action type of each event (for `issues`, "assigned"). The others load with JavaScript, so the `opened` payload schema can't be read from the page. Scout lists this as an open question instead of guessing.
 
 ## Cost
 
-A goal run reads fewer but longer pages, so it costs about the same as a normal run. For UPS Track Alert with `--max-pages 6`, the estimate is $0.11 to $0.16, or around $0.20 if the agent also reads the Enhanced spec. The $0.50 per-run cap still applies. Pushing to Postman, re-pushing and all ranking are free.
+A goal run reads fewer but longer pages, so it costs about the same as a normal run. The three GitHub webhooks runs with `--max-pages 6` cost $0.12, $0.15 and $0.13. The $0.50 per-run cap still applies. Pushing to Postman, re-pushing and all ranking are free.
 
 ## Limits
 
