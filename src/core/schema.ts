@@ -92,8 +92,10 @@ export const EnvironmentValue = z.object({
 export const FlowStepValue = z.object({
   action: z.string().describe("Short description, e.g. 'Get an OAuth access token' or 'UPS posts a tracking event'"),
   direction: z
-    .enum(["app_to_api", "api_to_app", "api_to_webhook"])
-    .describe("Who calls whom: your app calls the API, the API answers, or the API calls your webhook endpoint"),
+    .enum(["app_to_api", "api_to_app", "api_to_webhook", "on_your_side"])
+    .describe(
+      "Who calls whom: your app calls the API, the API answers, the API calls your webhook endpoint, or a step that happens on your side only (e.g. verifying a signature)",
+    ),
   endpoint: z
     .string()
     .optional()

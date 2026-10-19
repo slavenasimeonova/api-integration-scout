@@ -17,6 +17,53 @@ const METHODS = new Set(["get", "put", "post", "delete", "patch", "head", "optio
 const MAX_SCHEMAS = 80;
 const MAX_LABEL = 100;
 
+/** Most sections listed for a long HTML page; the rest are summarized as a count. */
+const MAX_SECTION_CHARS = 6000;
+
+export type Section = { level: 1 | 2 | 3; text: string; offset: number };
+
+/**
+ * Where each heading of a long HTML page starts in its extracted text (every
+ * heading is its own line there), so the agent can jump to the right part,
+ * e.g. the "issues" event on GitHub's 141k-character events page.
+ */
+export function sectionOffsets(text: string, headings: { level: 1 | 2 | 3; text: string }[]): Section[] {
+  const out: Section[] = [];
+  let cursor = 0;
+  for (const h of headings) {
+    let at = text.indexOf(h.text, cursor);
+    // A heading must start a line; skip mentions inside paragraphs.
+    while (at > 0 && text[at - 1] !== "\n") at = text.indexOf(h.text, at + 1);
+    if (at < 0) continue;
+    out.push({ ...h, offset: at });
+    cursor = at + h.text.length;
+  }
+  return out;
+}
+
+/**
+ * The section map: every h1/h2, plus h3s that match the goal (a page can have
+ * hundreds). Goal matches are marked with *. Capped at MAX_SECTION_CHARS.
+ */
+export function formatSections(sections: Section[], partOf: (offset: number) => number, matches: (text: string) => boolean): string {
+  const lines: string[] = [];
+  let size = 0;
+  let left = 0;
+  for (const s of sections) {
+    const hit = matches(s.text);
+    if (s.level === 3 && !hit) continue;
+    const line = `- ${hit ? "* " : ""}${s.level === 3 ? "  " : ""}${s.text} (part ${partOf(s.offset)})`;
+    if (size + line.length > MAX_SECTION_CHARS) {
+      left++;
+      continue;
+    }
+    lines.push(line);
+    size += line.length + 1;
+  }
+  if (left) lines.push(`- ... and ${left} more sections`);
+  return lines.join("\n");
+}
+
 /** Returns the outline, or null when the text isn't an OpenAPI/Swagger document. */
 export function specOutline(text: string): OutlineItem[] | null {
   const body = text.replace(/^﻿/, "");

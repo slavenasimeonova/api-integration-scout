@@ -39,6 +39,15 @@ function section(title: string, f: Finding<unknown>, describe: () => string[]): 
   return [`### ${title}`, "", ...body, "", ...evidence(f), ""];
 }
 
+function parsesAsJson(text: string): boolean {
+  try {
+    JSON.parse(text);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** How much of a long page the agent read. Older analyses have no part counts. */
 function partsNote(p: PageVisit): string {
   if (p.parts && p.parts > 1) {
@@ -47,7 +56,12 @@ function partsNote(p: PageVisit): string {
   return p.truncated ? " (truncated; findings may be incomplete)" : "";
 }
 
-const DIRECTION_LABEL = { app_to_api: "Your app → API", api_to_app: "API → your app", api_to_webhook: "API → your webhook" } as const;
+const DIRECTION_LABEL = {
+  app_to_api: "Your app → API",
+  api_to_app: "API → your app",
+  api_to_webhook: "API → your webhook",
+  on_your_side: "on your side",
+} as const;
 
 /** Goal mode: the integration's steps in order, each with its evidence status. */
 function flowSection(a: Analysis): string[] {
@@ -248,7 +262,9 @@ export function buildMarkdown(a: Analysis): string {
               ...v.payloadFields.slice(0, 25).map((p) => `| \`${cell(p.name)}\` | ${cell(p.type ?? "—")} | ${cell(p.description)} |`),
             ]
           : []),
-        ...(v.examplePayload ? ["", "Example payload (from the docs):", "", "```", v.examplePayload, "```"] : []),
+        ...(v.examplePayload
+          ? ["", `Example payload (from the docs${parsesAsJson(v.examplePayload) ? "" : "; abbreviated or not valid JSON, so no Postman webhook test"}):`, "", "```", v.examplePayload, "```"]
+          : []),
       ];
     }),
     ...section("Error format", a.errorFormat, () => {

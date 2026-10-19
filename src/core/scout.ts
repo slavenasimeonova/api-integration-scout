@@ -62,6 +62,17 @@ export class ScoutError extends Error {
 /** Best sitemap matches listed in the first message (goal mode). */
 const SITEMAP_MATCHES_IN_PROMPT = 25;
 
+/**
+ * A path relative to the base URL ("/repos/{owner}/{repo}/hooks") or a full
+ * http(s) URL: no spaces, only {name} placeholders, and not just a placeholder
+ * (that's someone else's URL, e.g. the user's own webhook receiver).
+ */
+export function isEndpointPath(path: string): boolean {
+  const p = path.trim();
+  if (!p || /\s/.test(p) || /^\{[^}]*\}$/.test(p)) return false;
+  return !/[{}]/.test(p.replace(/\{[A-Za-z0-9_.-]+\}/g, ""));
+}
+
 const JS_RENDERING_RISK = "docs page may require JavaScript rendering; content may be incomplete";
 
 /** Runs the scout agent on a docs URL and returns a verified analysis. Writes no files. */
@@ -220,6 +231,11 @@ export async function runScout(docsUrl: string, opts: RunScoutOptions = {}): Pro
   if (!parsed.success) fail("invalid_output", `Agent output did not match the schema: ${parsed.error.message}`);
 
   session.reportUnreadParts();
+  // An endpoint must be a path or URL the app can call. The model sometimes lists
+  // the user's own webhook receiver as "POST {your Payload URL}"; that belongs in
+  // webhooks, and as an endpoint it would become a broken request in Postman.
+  const notPaths = parsed.data!.endpoints.filter((e) => e.value && !isEndpointPath(e.value.path));
+  if (notPaths.length) parsed.data!.endpoints = parsed.data!.endpoints.filter((e) => !notPaths.includes(e));
   const { output, downgrades } = verifyAnalysis(parsed.data!, session.pages);
   for (const d of downgrades) {
     emit({ step: "verification_downgrade", detail: `${d.field} downgraded to inferred: ${d.reason}`, field: d.field });
@@ -227,6 +243,9 @@ export async function runScout(docsUrl: string, opts: RunScoutOptions = {}): Pro
 
   const risks: Risk[] = output.risks.map((r) => ({ ...r, origin: "agent" }));
   const warnings: string[] = [];
+  for (const e of notPaths) {
+    warnings.push(`Endpoint "${e.value!.method} ${e.value!.path}" left out: its path isn't a URL path (a webhook receiver is described under webhooks)`);
+  }
 
   for (const visit of session.visits) {
     if (visit.lowText) {

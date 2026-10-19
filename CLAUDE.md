@@ -136,6 +136,13 @@ examples/ipinfo/ Real run output (regenerated offline with the current host chec
     - **Results:** show the goal, an Environments table and a collapsible "Pages considered".
     - **Meter:** the "Pages read" meter counts reads against the limit (parts included) via `figures.readsUsed`. The header shows "N pages read (M parts)".
     - **Fixtures:** Parcelpost goal fixtures live in `tests/helpers/parcelpost.ts`. Fake keys in tests are assembled at runtime (`["PMAK", ...].join("-")`) so secret scanners never see a key-shaped literal.
+  - **First real goal run (2026-10-19):** GitHub webhooks, "new issue + verify signature", `--max-pages 6`, $0.1196. The signature findings were solid, but it exposed six gaps, all fixed (`tests/goal-fixes.test.ts`):
+    1. **Section map:** long HTML pages get a heading list with the part each heading starts in (`sectionOffsets`/`formatSections`). It has every h1/h2, plus h3s that match the goal, capped at 6,000 characters. Headings are marked for the goal only with keywords that are distinctive on that page (in at most a fifth of its headings, minimum 3). On GitHub's 141,000-character events page "webhook" is in a third of the headings and would mark everything. The first run read part 1 of 12 and never reached `issues` (part 5).
+    2. **Receiver as an endpoint:** the agent listed the user's own receiver as an endpoint (`POST {your Payload URL}`), which made a broken Postman request. `isEndpointPath` now drops paths with spaces, malformed braces, or nothing but a placeholder, with a warning.
+    3. **Own-side steps:** flow direction `on_your_side` (e.g. verifying a signature) is drawn as `Hook->>Hook`, or `App->>App`, not as a call to the API.
+    4. **Webhook test request:** only for a complete JSON example payload. GitHub's is abbreviated with `...`, and the document says so.
+    5. **Ranking:** synonym groups in stem space (`verify`/`validat`, `signatu`/`hmac`) are deliberately small: "sign" and "callback" would match login and OAuth pages. Template placeholder links (`${externalDocsUrl}/...`) are dropped.
+    6. **Progress reports:** the goal-mode prompt now asks for `report_progress` after each page (the first run made none).
 - Git Bash rewrites `/api-integration-scout` into a Windows path. Use `MSYS_NO_PATHCONV=1` when passing the base path from Bash (PowerShell and CI are unaffected).
 - Deploy with a dedicated key from the "scout-demo" workspace (monthly spend limit), never the local key.
 - `MemoryStore` limit counters reset on restart. Hosts that scale to zero need a persistent store (e.g. Redis or a volume).

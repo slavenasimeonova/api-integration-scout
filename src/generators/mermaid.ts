@@ -32,7 +32,9 @@ function flowDiagram(analysis: Analysis, steps: (Finding<FlowStep> & { value: Fl
     const label = `${text(s.value.action, 70)}${s.value.endpoint ? ` (${text(s.value.endpoint, 50)})` : ""}${tag(s)}`;
     if (s.value.direction === "app_to_api") lines.push(`  App->>API: ${label}`);
     else if (s.value.direction === "api_to_app") lines.push(`  API-->>App: ${label}`);
-    else lines.push(`  API->>Hook: ${label}`);
+    else if (s.value.direction === "api_to_webhook") lines.push(`  API->>Hook: ${label}`);
+    // A step on the user's side (e.g. verifying a signature) stays with the receiver, or the app.
+    else lines.push(hook ? `  Hook->>Hook: ${label}` : `  App->>App: ${label}`);
   }
   if (analysis.auth.status === "not_found") lines.push("  Note over App,API: Auth not found in docs");
   return lines.join("\n") + "\n";

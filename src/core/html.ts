@@ -2,12 +2,14 @@ import * as cheerio from "cheerio";
 
 export type PageLink = { url: string; text: string };
 
+export type Heading = { level: 1 | 2 | 3; text: string };
+
 export type ExtractedPage = {
   title: string;
   text: string;
   links: PageLink[];
-  /** h1 to h3 texts in page order, used to point the agent at sections that match its goal. */
-  headings: string[];
+  /** h1 to h3 in page order: the section map of long pages, and goal matches. */
+  headings: Heading[];
   /**
    * True when the page shows signs of client-side rendering: a <noscript>
    * notice asking for JavaScript, or an empty SPA mount element.
@@ -38,14 +40,16 @@ export function extractPage(html: string, pageUrl: string): ExtractedPage {
   $("a[href]").each((_, el) => {
     const url = normalizeUrl($(el).attr("href") ?? "", pageUrl);
     if (!url || seen.has(url) || SKIP_LINK_EXTENSIONS.test(new URL(url).pathname)) return;
+    // Unrendered template placeholders (GitHub's docs link to "${externalDocsUrl}/..."): not real pages.
+    if (/\$\{|\{\{|\$%7B|%7B%7B/i.test(url)) return;
     seen.add(url);
     links.push({ url, text: collapse($(el).text()).slice(0, 100) });
   });
 
-  const headings = $("h1,h2,h3")
+  const headings: Heading[] = $("h1,h2,h3")
     .toArray()
-    .map((el) => collapse($(el).text()).slice(0, 120))
-    .filter(Boolean);
+    .map((el) => ({ level: Number(el.tagName.slice(1)) as Heading["level"], text: collapse($(el).text()).slice(0, 120) }))
+    .filter((h) => h.text);
 
   $("script,style,noscript,svg,iframe,template,link,meta").remove();
   $("br").replaceWith("\n");

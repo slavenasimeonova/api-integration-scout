@@ -87,6 +87,24 @@ export function maskCredentialFields(body: string): { body: string; fields: stri
   return fields.length ? { body: JSON.stringify(masked, null, 2), fields } : { body, fields };
 }
 
+/**
+ * The body for the webhook test request: the docs' example payload with
+ * credential fields as variables, only if it is valid JSON. Docs often
+ * abbreviate examples ("...": GitHub's issues payload), and sending that to a
+ * receiver would only test its JSON parser.
+ */
+export function webhookTestPayload(analysis: Pick<Analysis, "webhooks">): { body: string; fields: string[] } | null {
+  const hooks = analysis.webhooks.status !== "not_found" ? analysis.webhooks.value : null;
+  if (!hooks?.examplePayload) return null;
+  const masked = maskCredentialFields(hooks.examplePayload);
+  try {
+    JSON.parse(masked.body);
+    return masked;
+  } catch {
+    return null;
+  }
+}
+
 /** Every variable the collection uses, in a stable order. */
 export function collectionVariables(analysis: Analysis): Variable[] {
   const vars: Variable[] = [];
@@ -139,7 +157,7 @@ export function collectionVariables(analysis: Analysis): Variable[] {
       add({ key: field, value: "", secret: true, description: `Credential field in a request body ("${field}"); the docs' example value is not used` });
     }
   }
-  if (analysis.webhooks.status !== "not_found" && analysis.webhooks.value?.examplePayload) {
+  if (webhookTestPayload(analysis)) {
     add({ key: "webhookUrl", value: "", secret: false, description: "Your own webhook endpoint, for the webhook test request" });
   }
   return vars;

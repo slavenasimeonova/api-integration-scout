@@ -43,12 +43,25 @@ export function stem(word: string): string {
   return w.length > 7 ? w.slice(0, 7) : w;
 }
 
-/** The goal's keywords, stemmed and de-duplicated, in the order they appear. */
+/**
+ * Stems that mean the same thing in API docs, mapped to one term, so a goal
+ * that says "verify" finds "Validating webhook deliveries". Kept short and
+ * specific: a broad synonym (e.g. "sign" for "signature", "callback" for
+ * "webhook") would match "Sign in" or OAuth callback pages.
+ */
+const SYNONYMS: string[][] = [
+  ["verify", "verifi", "verific", "validat", "valid"],
+  ["signatu", "hmac"],
+];
+const CANONICAL = new Map(SYNONYMS.flatMap((group) => group.map((s) => [s, group[0]!] as const)));
+const canonical = (s: string) => CANONICAL.get(s) ?? s;
+
+/** The goal's keywords, stemmed, with synonyms merged, de-duplicated, in the order they appear. */
 export function goalTerms(goal: string): string[] {
   const out: string[] = [];
   for (const t of tokens(goal)) {
     if (t.length < 3 || STOPWORDS.has(t) || /^\d+$/.test(t)) continue;
-    const s = stem(t);
+    const s = canonical(stem(t));
     if (!out.includes(s)) out.push(s);
   }
   return out;
@@ -63,7 +76,7 @@ const AUTH_STEMS = new Set(["auth", "oauth", "oauth2", "authent", "authori", "to
 export type Match = { score: number; matched: string[] };
 
 function matchTerms(words: string[], terms: string[]): string[] {
-  const stems = new Set(words.map(stem));
+  const stems = new Set(words.map((w) => canonical(stem(w))));
   return terms.filter((t) => stems.has(t));
 }
 
@@ -93,7 +106,12 @@ export function scoreLink(link: { url: string; text: string }, terms: string[]):
 
 /** Headings on a page that mention a goal term, for the "sections on this page" hint. */
 export function matchingHeadings(headings: string[], terms: string[], max = 12): string[] {
-  return headings.filter((h) => matchTerms(tokens(h), terms).length > 0).slice(0, max);
+  return headings.filter((h) => headingMatches(h, terms)).slice(0, max);
+}
+
+/** True when a heading mentions one of the goal's keywords. */
+export function headingMatches(heading: string, terms: string[]): boolean {
+  return matchTerms(tokens(heading), terms).length > 0;
 }
 
 /** Unread candidates kept in the report, best first. */

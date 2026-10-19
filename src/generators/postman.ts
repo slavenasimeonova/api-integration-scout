@@ -13,7 +13,7 @@ import {
   type EndpointTarget,
   type UsableEndpoint,
 } from "./format.js";
-import { clientCredentialsAuth, collectionVariables, environmentOptions, maskCredentialFields, serverUrlForPostman } from "./variables.js";
+import { clientCredentialsAuth, collectionVariables, environmentOptions, maskCredentialFields, serverUrlForPostman, webhookTestPayload } from "./variables.js";
 
 export const POSTMAN_SCHEMA_URL = "https://schema.getpostman.com/json/collection/v2.1.0/collection.json";
 
@@ -83,6 +83,9 @@ export function buildPostmanCollection(analysis: Analysis, id: string = randomUU
     notes.push(`The docs list ${options.length} environments; {{baseUrl}} is left empty so you choose: ${list.join(" | ")}`);
   }
   if (webhookTest) notes.push(`"${WEBHOOK_TEST_FOLDER}" sends the docs' example event to {{webhookUrl}}, your own endpoint.`);
+  else if (analysis.webhooks.status !== "not_found" && analysis.webhooks.value?.examplePayload) {
+    notes.push("No webhook test request: the docs' example payload isn't complete JSON (e.g. abbreviated with ...).");
+  }
 
   return {
     info: {
@@ -134,10 +137,11 @@ function oauthClientCredentials(): PostmanAuth {
  * and is added only when the docs show an example payload.
  */
 function buildWebhookTest(analysis: Analysis) {
-  const hooks = analysis.webhooks.status !== "not_found" ? analysis.webhooks.value : null;
-  if (!hooks?.examplePayload) return null;
-  const { body, fields } = maskCredentialFields(hooks.examplePayload);
-  const isJson = parsesAsJson(body);
+  const hooks = analysis.webhooks.value;
+  const payload = webhookTestPayload(analysis);
+  if (!hooks || !payload) return null;
+  const { body, fields } = payload;
+  const isJson = true;
   const webhookUrl: ReturnType<typeof buildItem>["request"]["url"] = { raw: "{{webhookUrl}}", host: ["{{webhookUrl}}"], path: [] };
   return {
     name: `POST {{webhookUrl}} (example ${shorten(hooks.events[0] ?? "event", 40)})`,
