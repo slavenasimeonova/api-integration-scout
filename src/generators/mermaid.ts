@@ -46,13 +46,17 @@ export function buildSequenceDiagram(analysis: Analysis): string {
   if (steps.length) return flowDiagram(analysis, steps);
   const endpoints = usableEndpoints(analysis);
   const auth = analysis.auth.status !== "not_found" ? analysis.auth.value : null;
+  // Only a credential the app sends labels the call. An "other" method may not be
+  // one: in a real GitHub run it was the signature on incoming webhook deliveries
+  // (X-Hub-Signature-256), which the diagram showed on the call to create the hook.
+  const sendsCredential = !auth || ["api_key", "bearer", "basic", "oauth2"].includes(auth.type);
   const credential = auth?.parameterName ?? (auth?.type === "bearer" || auth?.type === "oauth2" ? "Authorization: Bearer" : "credentials");
   const lines = ["sequenceDiagram", "  autonumber", "  participant App as Your app", `  participant API as ${text(analysis.apiName, 40)} API`];
 
   if (auth?.type === "oauth2") {
     lines.splice(3, 0, "  participant Auth as Authorization server");
     lines.push(`  App->>Auth: Request access token (OAuth 2.0)${tag(analysis.auth)}`, "  Auth-->>App: Access token");
-  } else if (auth && auth.type !== "none") {
+  } else if (auth && sendsCredential) {
     lines.push(`  Note over App,API: Auth: ${text(auth.description, 70)}${tag(analysis.auth)}`);
   } else if (!auth) {
     lines.push("  Note over App,API: Auth not found in docs");
@@ -60,7 +64,7 @@ export function buildSequenceDiagram(analysis: Analysis): string {
 
   const main = endpoints.find((e) => e.value.method === "GET" && !e.value.path.includes("{")) ?? endpoints[0];
   if (main) {
-    lines.push(`  App->>API: ${text(call(main))} (${text(credential, 30)})${tag(main)}`, `  API-->>App: 200 ${text(main.value.purpose, 60)}`);
+    lines.push(`  App->>API: ${text(call(main))}${sendsCredential ? ` (${text(credential, 30)})` : ""}${tag(main)}`, `  API-->>App: 200 ${text(main.value.purpose, 60)}`);
   }
 
   if (analysis.errorFormat.status !== "not_found" && analysis.errorFormat.value) {

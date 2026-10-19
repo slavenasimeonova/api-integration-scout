@@ -6,7 +6,7 @@ import type { Fetcher } from "../src/core/fetcher.js";
 import { extractPage } from "../src/core/html.js";
 import { GOAL_INSTRUCTIONS } from "../src/core/prompt.js";
 import { goalTerms, scoreLink } from "../src/core/relevance.js";
-import type { AgentOutput, Analysis } from "../src/core/schema.js";
+import { type AgentOutput, type Analysis, agentOutputJsonSchema } from "../src/core/schema.js";
 import { isEndpointPath, runScout } from "../src/core/scout.js";
 import { formatSections, sectionOffsets } from "../src/core/spec-outline.js";
 import { DocsSession, PROGRESS_REMINDER } from "../src/core/tools.js";
@@ -228,6 +228,40 @@ describe("second run: progress reminder, auth note, setup steps", () => {
     const at = lines.findIndex((l) => l.startsWith("Authentication: not configured: Postman has no built-in type"));
     expect(at).toBeGreaterThanOrEqual(0);
     expect(lines[at + 1]).toMatch(/^Also documented, configure manually/);
+  });
+
+  it("requires flow and pagesConsidered in goal mode only, and warns if the model still leaves them out", async () => {
+    const goalSchema = agentOutputJsonSchema(true) as { required: string[]; properties: Record<string, { minItems?: number }> };
+    expect(goalSchema.required).toEqual(expect.arrayContaining(["flow", "pagesConsidered"]));
+    expect(goalSchema.properties.flow!.minItems).toBe(1);
+    expect(goalSchema.properties.pagesConsidered!.minItems).toBe(1);
+    const plainSchema = agentOutputJsonSchema() as { required: string[] };
+    expect(plainSchema.required).not.toContain("flow");
+    expect(plainSchema.required).not.toContain("pagesConsidered");
+
+    const runner = fakeRunner([{ fetch: ACME_ROOT }, { result: "success", output: ACME_OUTPUT }]);
+    const withGoal = await runScout(ACME_ROOT, { config: DEFAULT_CONFIG, fetcher: createFixtureFetcher(), goal: "receive webhooks", runner });
+    expect(runner.calls[0]!.options.outputFormat).toEqual({ type: "json_schema", schema: agentOutputJsonSchema(true) });
+    expect(withGoal.warnings).toContain("The agent returned no integration flow, so the sequence diagram is the generic one");
+    expect(withGoal.warnings).toContain("The agent gave no reasons for the pages it considered");
+
+    const plainRunner = fakeRunner([{ fetch: ACME_ROOT }, { result: "success", output: ACME_OUTPUT }]);
+    const plain = await runScout(ACME_ROOT, { config: DEFAULT_CONFIG, fetcher: createFixtureFetcher(), runner: plainRunner });
+    expect(plainRunner.calls[0]!.options.outputFormat).toEqual({ type: "json_schema", schema: agentOutputJsonSchema() });
+    expect(plain.warnings.join("\n")).not.toMatch(/integration flow|pages it considered/);
+  });
+
+  it("fallback diagram: an 'other' auth method (an inbound signature) doesn't label the API call", async () => {
+    const analysis = await baseAnalysis(ACME_OUTPUT);
+    const value = { type: "other" as const, location: "header" as const, parameterName: "X-Hub-Signature-256", description: "Shared webhook secret" };
+    const mmd = buildSequenceDiagram({ ...analysis, flow: undefined, auth: { ...analysis.auth, status: "documented", value } });
+    expect(mmd).not.toContain("X-Hub-Signature-256");
+    expect(mmd).not.toContain("Note over App,API: Auth:");
+    expect(mmd).toContain("  App->>API: GET /forecast (inferred)\n");
+    // A credential the app sends still labels the call.
+    const withKey = buildSequenceDiagram({ ...analysis, flow: undefined });
+    expect(withKey).toContain("  Note over App,API: Auth: API key in the X-Api-Key header");
+    expect(withKey).toContain("  App->>API: GET /forecast (X-Api-Key) (inferred)\n");
   });
 
   it("classes setup at the provider (creating the webhook in settings) as app_to_api, not on_your_side", () => {

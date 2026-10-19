@@ -152,7 +152,7 @@ export async function runScout(docsUrl: string, opts: RunScoutOptions = {}): Pro
     persistSession: false,
     maxTurns: config.maxTurns,
     maxBudgetUsd: config.maxBudgetUsd,
-    outputFormat: { type: "json_schema", schema: agentOutputJsonSchema() },
+    outputFormat: { type: "json_schema", schema: agentOutputJsonSchema(Boolean(goal)) },
     abortController,
   };
 
@@ -294,6 +294,9 @@ export async function runScout(docsUrl: string, opts: RunScoutOptions = {}): Pro
     if (built.dropped.length) {
       warnings.push(`${built.dropped.length} relevance note(s) left out: the agent neither read nor saw ${built.dropped.join(", ")}`);
     }
+    // Required by the goal schema; warn rather than fail a paid run if the model still leaves them out.
+    if (!findings.flow?.length) warnings.push("The agent returned no integration flow, so the sequence diagram is the generic one");
+    if (!pagesConsidered?.length) warnings.push("The agent gave no reasons for the pages it considered");
   }
 
   const analysis: Analysis = {

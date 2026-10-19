@@ -158,6 +158,15 @@ export const AgentRisk = z.object({
   detail: z.string(),
 });
 
+const FlowSteps = z.array(finding(FlowStepValue));
+const PagesConsidered = z.array(
+  z.object({
+    url: z.string().describe("A page you read, or a link you saw and chose not to read"),
+    relevant: z.boolean().describe("Whether the page matters for the goal"),
+    reason: z.string().describe("One short sentence: why it is or isn't relevant to the goal"),
+  }),
+);
+
 /** What the model must return (passed to the SDK as the outputFormat schema). */
 export const AgentOutput = z.object({
   apiName: z.string().describe("Short human name of the API, e.g. 'Stripe' or 'OpenWeather'"),
@@ -181,22 +190,22 @@ export const AgentOutput = z.object({
     .array(finding(EnvironmentValue))
     .optional()
     .describe("Every server or environment the docs list (e.g. sandbox/test and production), each with its own quote. Omit if the docs list only one base URL."),
-  flow: z
-    .array(finding(FlowStepValue))
-    .optional()
+  flow: FlowSteps.optional()
     .describe("Goal mode: the integration's steps in order (token, requests, webhook delivery). Omit without a goal."),
-  pagesConsidered: z
-    .array(
-      z.object({
-        url: z.string().describe("A page you read, or a link you saw and chose not to read"),
-        relevant: z.boolean().describe("Whether the page matters for the goal"),
-        reason: z.string().describe("One short sentence: why it is or isn't relevant to the goal"),
-      }),
-    )
-    .optional()
+  pagesConsidered: PagesConsidered.optional()
     .describe("Goal mode only: every page you read and every promising link you skipped, with your reason. Omit without a goal."),
 });
 export type AgentOutput = z.infer<typeof AgentOutput>;
+
+/**
+ * Goal mode: flow and pagesConsidered are required, because a real run
+ * (2026-10-19) left both out while they were optional. Only the schema sent to
+ * the SDK changes; runScout still parses with AgentOutput and warns if they're missing.
+ */
+export const GoalAgentOutput = AgentOutput.extend({
+  flow: FlowSteps.min(1).describe("The integration's steps in order (setup, token, requests, webhook delivery, work on your side)."),
+  pagesConsidered: PagesConsidered.min(1).describe("Every page you read and every promising link you skipped, with your reason."),
+});
 
 export type Finding<T> = {
   status: FindingStatus;
@@ -283,6 +292,6 @@ export type Analysis = Omit<AgentOutput, "risks" | "endpoints" | "pagesConsidere
 };
 
 /** JSON Schema (draft-07, as the Agent SDK requires) for AgentOutput. */
-export function agentOutputJsonSchema(): Record<string, unknown> {
-  return z.toJSONSchema(AgentOutput, { target: "draft-7" }) as Record<string, unknown>;
+export function agentOutputJsonSchema(goal = false): Record<string, unknown> {
+  return z.toJSONSchema(goal ? GoalAgentOutput : AgentOutput, { target: "draft-7" }) as Record<string, unknown>;
 }
