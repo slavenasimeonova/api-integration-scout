@@ -43,23 +43,34 @@ export function sectionOffsets(text: string, headings: { level: 1 | 2 | 3; text:
 
 /**
  * The section map: every h1/h2, plus h3s that match the goal (a page can have
- * hundreds). Goal matches are marked with *. Capped at MAX_SECTION_CHARS.
+ * hundreds). Goal matches are marked with *. Each section names the parts it
+ * spans ("parts 5-6"), up to the next heading of the same or a higher level or
+ * `textLength`, so the agent knows when a section continues past one part.
+ * Capped at MAX_SECTION_CHARS.
  */
-export function formatSections(sections: Section[], partOf: (offset: number) => number, matches: (text: string) => boolean): string {
+export function formatSections(
+  sections: Section[],
+  partOf: (offset: number) => number,
+  matches: (text: string) => boolean,
+  textLength: number,
+): string {
   const lines: string[] = [];
   let size = 0;
   let left = 0;
-  for (const s of sections) {
+  sections.forEach((s, i) => {
     const hit = matches(s.text);
-    if (s.level === 3 && !hit) continue;
-    const line = `- ${hit ? "* " : ""}${s.level === 3 ? "  " : ""}${s.text} (part ${partOf(s.offset)})`;
+    if (s.level === 3 && !hit) return;
+    const end = sections.slice(i + 1).find((n) => n.level <= s.level)?.offset ?? textLength;
+    const [first, last] = [partOf(s.offset), partOf(Math.max(s.offset, end - 1))];
+    const parts = last > first ? `parts ${first}-${last}` : `part ${first}`;
+    const line = `- ${hit ? "* " : ""}${s.level === 3 ? "  " : ""}${s.text} (${parts})`;
     if (size + line.length > MAX_SECTION_CHARS) {
       left++;
-      continue;
+      return;
     }
     lines.push(line);
     size += line.length + 1;
-  }
+  });
   if (left) lines.push(`- ... and ${left} more sections`);
   return lines.join("\n");
 }

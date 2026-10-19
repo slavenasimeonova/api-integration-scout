@@ -70,9 +70,9 @@ export function buildPostmanCollection(analysis: Analysis, id: string = randomUU
   ];
   if (primary) notes.push(`Authentication: ${authName(primary.value)} (documented).`);
   if (alternatives.length) notes.push(`Other documented auth methods: see the "${AUTH_ALTERNATIVES_FOLDER}" folder.`);
+  if (!primary) notes.push(`Authentication: ${describeAuthGap(analysis)}`);
   const unsupported = methods.filter((m) => !supported.includes(m));
   for (const m of unsupported) notes.push(`Also documented, configure manually: ${m.value.type}: ${m.value.description}`);
-  if (!primary) notes.push(`Authentication: ${describeAuthGap(analysis)}`);
   if (auth?.type === "oauth2" && oauth) {
     notes.push(
       "OAuth 2.0 client credentials: set {{clientId}} and {{clientSecret}}, then use Get New Access Token in the collection's Authorization tab.",
@@ -444,6 +444,8 @@ function toPostmanAuth(auth: Auth): PostmanAuth | null {
 
 function describeAuthGap(analysis: Analysis): string {
   if (analysis.auth.status === "not_found" || !analysis.auth.value) return "not found in docs; configure manually.";
+  // Documented methods Postman can't express are already listed as "Also documented, configure manually".
+  if (analysis.auth.status === "documented") return "not configured: Postman has no built-in type for the documented method(s) below.";
   return `${analysis.auth.value.type}: ${analysis.auth.value.description} (${STATUS_LABEL[analysis.auth.status].toLowerCase()}, not documented, so not configured; set it up manually).`;
 }
 

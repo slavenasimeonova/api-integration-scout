@@ -1,4 +1,4 @@
-// Fixes after the first real goal run (GitHub webhooks, 2026-10-19).
+// Fixes after the first two real goal runs (GitHub webhooks, 2026-10-19).
 import { describe, expect, it } from "vitest";
 import { DEFAULT_CONFIG } from "../src/core/config.js";
 import { createEmitter } from "../src/core/events.js";
@@ -9,7 +9,7 @@ import { goalTerms, scoreLink } from "../src/core/relevance.js";
 import type { AgentOutput, Analysis } from "../src/core/schema.js";
 import { isEndpointPath, runScout } from "../src/core/scout.js";
 import { formatSections, sectionOffsets } from "../src/core/spec-outline.js";
-import { DocsSession } from "../src/core/tools.js";
+import { DocsSession, PROGRESS_REMINDER } from "../src/core/tools.js";
 import { buildMarkdown, buildPostmanCollection, buildPostmanEnvironment, buildSequenceDiagram } from "../src/generators/index.js";
 import { WEBHOOK_TEST_FOLDER } from "../src/generators/postman.js";
 import { ACME_OUTPUT, fakeRunner } from "./helpers/fake-runner.js";
@@ -57,8 +57,9 @@ describe("1. section map for long HTML pages", () => {
       { level: 3 as const, text: "Availability for watch", offset: 20 },
       { level: 2 as const, text: "watch", offset: 30 },
     ];
-    expect(formatSections(sections, (o) => (o < 25 ? 1 : 2), (t) => t.includes("issues"))).toBe(
-      ["- * issues (part 1)", "- *   Availability for issues (part 1)", "- watch (part 2)"].join("\n"),
+    // "issues" runs until "watch" (offset 30), so it continues into part 2; its h3 ends at the next h3.
+    expect(formatSections(sections, (o) => (o < 25 ? 1 : 2), (t) => t.includes("issues"), 40)).toBe(
+      ["- * issues (parts 1-2)", "- *   Availability for issues (part 1)", "- watch (part 2)"].join("\n"),
     );
   });
 
@@ -73,16 +74,18 @@ describe("1. section map for long HTML pages", () => {
     const result = await session.fetchPage(EVENTS_URL);
     const map = result.text.split("PAGE SECTIONS")[1]!.split("<<<PAGE_TEXT")[0]!;
     expect(map).toContain("* = matches the goal");
-    expect(map).toMatch(/- \* issues \(part \d+\)/);
-    expect(map).toMatch(/- \* issue_comment \(part \d+\)/);
-    expect(map).toMatch(/- watch \(part \d+\)/);
+    expect(map).toMatch(/- \* issues \(parts \d+-\d+\)/);
+    expect(map).toMatch(/- \* issue_comment \(parts? [\d-]+\)/);
+    expect(map).toMatch(/- watch \(parts? [\d-]+\)/);
     // "webhook" is in a third of the headings here, so it doesn't mark them.
     expect(map).not.toMatch(/\*\s+Webhook payload object for check_run/);
     expect(map).not.toContain("Availability for check_run");
     // The map's part for "issues" really holds that section.
-    const part = Number(/- \* issues \(part (\d+)\)/.exec(map)![1]);
-    const inPart = await session.fetchPage(EVENTS_URL, part);
+    const [, first, last] = /- \* issues \(parts (\d+)-(\d+)\)/.exec(map)!.map(Number);
+    const inPart = await session.fetchPage(EVENTS_URL, first);
     expect(inPart.text).toContain("\nissues\nThis event occurs when there is activity relating to issues.");
+    // ...and its last part holds the section's end, right before the next h2.
+    expect((await session.fetchPage(EVENTS_URL, last)).text).toContain("\nlabel\nThis event occurs");
   });
 
   it("leaves short pages without a section map", async () => {
@@ -198,5 +201,37 @@ describe("5. ranking: synonyms and template links", () => {
 describe("6. progress reports in goal mode", () => {
   it("asks the agent to keep calling report_progress", () => {
     expect(GOAL_INSTRUCTIONS).toContain("Keep reporting progress: after each page, call report_progress");
+  });
+});
+
+describe("second run: progress reminder, auth note, setup steps", () => {
+  it("reminds the agent to report progress when a page arrives with no report since the previous one", async () => {
+    const session = new DocsSession(ACME_ROOT, createFixtureFetcher(), DEFAULT_CONFIG, createEmitter(() => {}), goalTerms("webhooks"));
+    expect((await session.fetchPage(ACME_ROOT)).text).not.toContain(PROGRESS_REMINDER);
+    expect((await session.fetchPage("/webhooks")).text).toContain(PROGRESS_REMINDER);
+    session.reportProgress("webhooks_found", "Signed with HMAC");
+    const after = await session.fetchPage("/endpoints");
+    expect(after.isError).toBe(false);
+    expect(after.text).not.toContain(PROGRESS_REMINDER);
+  });
+
+  it("describes a documented auth method Postman can't set up once, without 'documented, not documented'", async () => {
+    const analysis = await baseAnalysis(ACME_OUTPUT);
+    const value = { type: "other" as const, description: "Shared webhook secret, HMAC in X-Hub-Signature-256" };
+    const c = buildPostmanCollection({ ...analysis, auth: { ...analysis.auth, status: "documented", value }, authAlternatives: [] });
+    const lines = c.info.description.split("\n");
+    expect(c.auth).toBeUndefined();
+    expect(c.info.description).not.toContain("not documented");
+    expect(lines.filter((l) => l.includes("Shared webhook secret"))).toEqual([
+      "Also documented, configure manually: other: Shared webhook secret, HMAC in X-Hub-Signature-256",
+    ]);
+    const at = lines.findIndex((l) => l.startsWith("Authentication: not configured: Postman has no built-in type"));
+    expect(at).toBeGreaterThanOrEqual(0);
+    expect(lines[at + 1]).toMatch(/^Also documented, configure manually/);
+  });
+
+  it("classes setup at the provider (creating the webhook in settings) as app_to_api, not on_your_side", () => {
+    expect(GOAL_INSTRUCTIONS).toContain("app_to_api for anything the user or their app does at the API provider, including setup in its dashboard or settings");
+    expect(GOAL_INSTRUCTIONS).toContain("on_your_side only for work inside the user's own system");
   });
 });

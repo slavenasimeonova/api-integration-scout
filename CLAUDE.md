@@ -143,6 +143,11 @@ examples/ipinfo/ Real run output (regenerated offline with the current host chec
     4. **Webhook test request:** only for a complete JSON example payload. GitHub's is abbreviated with `...`, and the document says so.
     5. **Ranking:** synonym groups in stem space (`verify`/`validat`, `signatu`/`hmac`) are deliberately small: "sign" and "callback" would match login and OAuth pages. Template placeholder links (`${externalDocsUrl}/...`) are dropped.
     6. **Progress reports:** the goal-mode prompt now asks for `report_progress` after each page (the first run made none).
+  - **Second goal run (2026-10-19, $0.1469):** the section map worked (the agent went straight to part 5, `issues`), and the receiver and the abbreviated payload were handled. Four more fixes (tests in the "second run" block of `tests/goal-fixes.test.ts`):
+    1. **Progress reports, in code:** the prompt sentence had no effect (still no `report_progress` calls). The SDK's structured output doesn't block tool calls; runs without a goal did report. Now a page served with no report since the previous page ends with `PROGRESS_REMINDER` (`tools.ts`), in both modes.
+    2. **Section ranges:** the map names every part a section spans ("issues (parts 5-6)"), up to the next heading of the same or a higher level. The agent read part 5 only and missed the `opened` schema further down.
+    3. **Postman description:** a documented primary auth Postman can't express (type `other`, e.g. a webhook secret) said "(documented, not documented, so not configured...)" and repeated the method. Now "Authentication: not configured: Postman has no built-in type...", followed by the "Also documented, configure manually" lines.
+    4. **Setup steps:** creating the webhook in GitHub's settings came back as `on_your_side`. The prompt now says `app_to_api` covers setup in the provider's dashboard or settings, and `on_your_side` is only for work inside the user's own system.
 - Git Bash rewrites `/api-integration-scout` into a Windows path. Use `MSYS_NO_PATHCONV=1` when passing the base path from Bash (PowerShell and CI are unaffected).
 - Deploy with a dedicated key from the "scout-demo" workspace (monthly spend limit), never the local key.
 - `MemoryStore` limit counters reset on restart. Hosts that scale to zero need a persistent store (e.g. Redis or a volume).
