@@ -1,7 +1,8 @@
-import { createHash, randomBytes } from "node:crypto";
 import { normalizeGoal } from "../core/goal.js";
-import { findCode, type AccessCode } from "./codes.js";
-import type { KvStore } from "./store.js";
+import { checkAccessCode, type AccessCode } from "./codes.js";
+import { jsonResponder } from "./http.js";
+import { interviewKey, type InterviewRecord } from "./interview.js";
+import { newId, RECORD_ID, type KvStore } from "./store.js";
 import type { Notify } from "./telegram.js";
 
 /**
@@ -11,7 +12,7 @@ import type { Notify } from "./telegram.js";
  * site. Web-standard Request/Response, so it runs in a Netlify Function, a
  * test, or (later) the worker.
  *
- *   POST /api/requests       { code, url } -> 201 { id, status, createdAt }
+ *   POST /api/requests       { code, url, goal?, interviewId? } -> 201 { id, status, createdAt }
  *   GET  /api/requests/<id>  -> { id, status, url, createdAt, updatedAt?, note? }
  *
  * The code name is never sent back to the browser.
@@ -25,6 +26,8 @@ export type ScoutRequest = {
   url: string;
   /** Optional: what the visitor wants to build; the run is scoped to it. Published with the result. */
   goal?: string;
+  /** The interview that wrote the goal (src/access/interview.ts); its transcript is kept 14 days. */
+  interviewId?: string;
   createdAt: string;
   status: RequestStatus;
   updatedAt?: string;
@@ -50,32 +53,17 @@ export type RequestApiDeps = {
   log?: (message: string) => void;
 };
 
-/** Wrong codes allowed per IP per hour before the IP is throttled. */
-export const MAX_BAD_CODES_PER_HOUR = 10;
-
-const ID = /^[a-z0-9]{26}$/;
+const ID = RECORD_ID;
 
 export const requestKey = (id: string) => `requests/${id}`;
-
-function newId(): string {
-  // 26 base-36 chars from 160 random bits; unguessable, so the id is the visitor's only key.
-  return BigInt(`0x${randomBytes(20).toString("hex")}`).toString(36).padStart(31, "0").slice(-26);
-}
 
 export async function handleRequestApi(req: Request, deps: RequestApiDeps): Promise<Response> {
   const now = deps.now ?? (() => new Date());
   const log = deps.log ?? ((m: string) => console.error(m));
-  const origin = req.headers.get("origin");
-  const cors: Record<string, string> =
-    origin && deps.allowedOrigins.includes(origin)
-      ? { "access-control-allow-origin": origin, "access-control-allow-methods": "GET, POST, OPTIONS", "access-control-allow-headers": "content-type", vary: "origin" }
-      : {};
-  const json = (status: number, body: unknown) =>
-    new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json", "cache-control": "no-store", ...cors } });
-  const fail = (status: number, error: string, message: string) => json(status, { error, message });
+  const { json, fail, preflight } = jsonResponder(req, deps.allowedOrigins);
 
   const path = new URL(req.url).pathname.replace(/\/+$/, "");
-  if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: { ...cors, "access-control-max-age": "600" } });
+  if (req.method === "OPTIONS") return preflight();
 
   // Status lookup.
   const match = /^\/api\/requests\/([^/]+)$/.exec(path);
@@ -90,7 +78,7 @@ export async function handleRequestApi(req: Request, deps: RequestApiDeps): Prom
 
   // New request.
   if (!deps.enabled) return fail(503, "paused", "Requests are paused right now. Please try again later.");
-  let body: { code?: unknown; url?: unknown; goal?: unknown };
+  let body: { code?: unknown; url?: unknown; goal?: unknown; interviewId?: unknown };
   try {
     body = (await req.json()) as typeof body;
   } catch {
@@ -107,19 +95,20 @@ export async function handleRequestApi(req: Request, deps: RequestApiDeps): Prom
     return fail(400, "invalid_goal", (err as Error).message);
   }
 
-  const at = now();
-  const hour = at.toISOString().slice(0, 13);
-  const ipHash = createHash("sha256").update(`${deps.ipSalt}:${deps.clientIp ?? "unknown"}`).digest("hex").slice(0, 32);
-  const throttleKey = `throttle/${hour}/${ipHash}`;
-  const badCodes = (await deps.store.getJSON<{ count: number }>(throttleKey))?.count ?? 0;
-  if (badCodes >= MAX_BAD_CODES_PER_HOUR) {
-    return fail(429, "too_many_attempts", "Too many wrong codes from this network. Try again in an hour.");
+  if (body.interviewId !== undefined && (typeof body.interviewId !== "string" || !ID.test(body.interviewId))) {
+    return fail(400, "invalid_body", "Send JSON: { code, url, goal? }.");
   }
 
-  const code = findCode(deps.codes, body.code);
-  if (!code) {
-    await deps.store.setJSON(throttleKey, { count: badCodes + 1 });
-    return fail(401, "invalid_code", "This access code isn't valid.");
+  const at = now();
+  const checked = await checkAccessCode(deps, body.code, at);
+  if (!("code" in checked)) return fail(checked.status, checked.error, checked.message);
+  const code = checked.code;
+
+  // A linked interview must belong to the same code; it is marked as used below.
+  let interview: InterviewRecord | undefined;
+  if (typeof body.interviewId === "string") {
+    interview = await deps.store.getJSON<InterviewRecord>(interviewKey(body.interviewId));
+    if (!interview || interview.codeName !== code.name) return fail(400, "invalid_interview", "This conversation has expired. Please write the goal yourself.");
   }
 
   const url = body.url.trim();
@@ -137,8 +126,17 @@ export async function handleRequestApi(req: Request, deps: RequestApiDeps): Prom
   if (total >= code.total) return fail(429, "code_limit_total", `This code has used all ${code.total} requests.`);
   if (today >= code.perDay) return fail(429, "code_limit_day", `This code has used today's ${code.perDay} requests. Try again tomorrow (UTC).`);
 
-  const record: ScoutRequest = { id: newId(), codeName: code.name, url, ...(goal ? { goal } : {}), createdAt: at.toISOString(), status: "pending" };
+  const record: ScoutRequest = {
+    id: newId(),
+    codeName: code.name,
+    url,
+    ...(goal ? { goal } : {}),
+    ...(interview ? { interviewId: interview.id } : {}),
+    createdAt: at.toISOString(),
+    status: "pending",
+  };
   await deps.store.setJSON(requestKey(record.id), record);
+  if (interview) await deps.store.setJSON(interviewKey(interview.id), { ...interview, status: "submitted", requestId: record.id });
   await deps.store.setJSON(dayKey, { count: today + 1 });
   await deps.store.setJSON(totalKey, { count: total + 1 });
 

@@ -7,7 +7,7 @@ import { parseArgs } from "node:util";
 import { isRequestId, requestKey, updateRequest, type ScoutRequest } from "../src/access/index.js";
 import { loadConfig, runScout, ScoutError, type ProgressEvent, type RunStats } from "../src/core/index.js";
 import { checkUrl, createSafeFetcher } from "../worker/safe-fetch.js";
-import { confirm, describeRequest, openRequestStore, resultBundle, resultLink } from "./requests-lib.js";
+import { confirm, describeInterview, describeRequest, openRequestStore, resultBundle, resultLink } from "./requests-lib.js";
 
 /**
  * Reviews one request: shows it, asks before running (a paid Claude API call),
@@ -60,6 +60,8 @@ async function main(): Promise<number> {
   const request = await store.getJSON<ScoutRequest>(requestKey(id));
   if (!request) throw new Error(`No request with id ${id}. List them with: npm.cmd run request:list`);
   console.log(`${describeRequest(request)}\n`);
+  const interview = await describeInterview(store, request);
+  if (interview) console.log(`${interview}\n`);
 
   if (values.decline) {
     if (!(await confirm("Decline this request?"))) return 0;

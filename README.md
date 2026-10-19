@@ -1,6 +1,6 @@
 # API Integration Scout
 
-**Live demo:** https://slavenasimeonova.github.io/api-integration-scout/ shows three saved runs (IPinfo, Notion, Postmark) replayed in the browser. Live runs are disabled there to control API costs. Clone the repo to run it locally. People with an access code can request a run, which I review, run and publish ([docs/requests.md](docs/requests.md)). Hosting details: [docs/hosting.md](docs/hosting.md).
+**Live demo:** https://slavenasimeonova.github.io/api-integration-scout/ shows three saved runs (IPinfo, Notion, Postmark) replayed in the browser. Live runs are disabled there to control API costs. Clone the repo to run it locally. People with an access code can request a run: a short chat with a goal assistant (Claude Haiku) helps them write the goal, and I review, run and publish the result ([docs/requests.md](docs/requests.md)). Hosting details: [docs/hosting.md](docs/hosting.md).
 
 ## Why I built this
 
@@ -183,7 +183,7 @@ Worker settings (environment variables): `PORT` (8787), `LIMIT_RUNS_PER_VISITOR`
 
 Static demo (examples only, no live runs, no API key): `npm run build:static` in `web/` exports the site to `web/out/`, and `npm run preview:static` serves it locally. GitHub Actions deploys it to GitHub Pages; see [docs/hosting.md](docs/hosting.md).
 
-Request mode (access codes, $0 hosting): a Netlify Function stores requests (URL and optional goal) from people with an access code and notifies me on Telegram; `npm run request:list` and `npm run request:fulfil -- <id>` review, run and publish them. Setup and daily use: [docs/requests.md](docs/requests.md).
+Request mode (access codes, $0 hosting): a Netlify Function stores requests (URL and optional goal) from people with an access code and notifies me on Telegram. After a valid code, a goal assistant (`claude-haiku-5-5`, at most 6 questions, about $0.003 per conversation) writes the goal with the visitor; `npm run request:list` and `npm run request:fulfil -- <id>` review, run and publish them. Setup and daily use: [docs/requests.md](docs/requests.md).
 
 ## Verification at work (offline fixture)
 

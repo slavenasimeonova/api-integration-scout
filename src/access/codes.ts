@@ -1,4 +1,5 @@
 import { createHash, randomInt, timingSafeEqual } from "node:crypto";
+import type { KvStore } from "./store.js";
 
 /**
  * Access codes: one per person, e.g. "recruiter-acme". The site never sees the
@@ -74,4 +75,34 @@ export function findCode(codes: AccessCode[], input: string): AccessCode | undef
     if (timingSafeEqual(typed, Buffer.from(code.hash, "hex"))) found = code;
   }
   return found;
+}
+
+/** Wrong codes allowed per IP per hour before the IP is throttled. */
+export const MAX_BAD_CODES_PER_HOUR = 10;
+
+export type CodeCheck = { code: AccessCode } | { status: number; error: string; message: string };
+
+/**
+ * Checks a typed access code. Wrong codes are counted per hashed IP per hour,
+ * and an IP over the limit is refused before the code is even looked at.
+ * Shared by the request and interview APIs, so both count toward one limit.
+ */
+export async function checkAccessCode(
+  deps: { store: KvStore; codes: AccessCode[]; clientIp?: string; ipSalt: string },
+  input: string,
+  at: Date,
+): Promise<CodeCheck> {
+  const hour = at.toISOString().slice(0, 13);
+  const ipHash = createHash("sha256").update(`${deps.ipSalt}:${deps.clientIp ?? "unknown"}`).digest("hex").slice(0, 32);
+  const throttleKey = `throttle/${hour}/${ipHash}`;
+  const badCodes = (await deps.store.getJSON<{ count: number }>(throttleKey))?.count ?? 0;
+  if (badCodes >= MAX_BAD_CODES_PER_HOUR) {
+    return { status: 429, error: "too_many_attempts", message: "Too many wrong codes from this network. Try again in an hour." };
+  }
+  const code = findCode(deps.codes, input);
+  if (!code) {
+    await deps.store.setJSON(throttleKey, { count: badCodes + 1 });
+    return { status: 401, error: "invalid_code", message: "This access code isn't valid." };
+  }
+  return { code };
 }

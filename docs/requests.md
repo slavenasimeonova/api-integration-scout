@@ -3,7 +3,9 @@
 People you give an access code to can request a run from the public demo. You review each request, run it on your machine, and publish the result to the site. It costs $0 in hosting: GitHub Pages and the Netlify Free plan. You only pay Anthropic for the runs you choose to do.
 
 ```
-Pages (home): "Have an access code?" -> code + docs URL + optional goal
+Pages (home): "Have an access code?" -> code + docs URL -> Continue
+  -> Netlify Function /api/interview: checks the code -> goal assistant chat (up to 6 questions)
+     -> the visitor edits the proposed goal (or writes one if the assistant is off)
   -> Netlify Function /api/requests: kill switch, wrong-code throttle (10 per IP per hour),
      code hash check, per-code limits (per day, total), URL check
   -> stored in Netlify Blobs as "pending" -> Telegram message to you
@@ -18,8 +20,9 @@ Pages redeploys (~2 min): the visitor's link replays the result.
 | Piece | Where |
 | --- | --- |
 | Codes, limits, request API, Telegram | `src/access/` (plain Node; reusable by a worker later) |
-| Netlify Function | `netlify/functions/requests.ts`, config in `netlify.toml` |
-| Site panel and results page | `web/components/AccessCodeRequest.tsx`, `web/app/results/` |
+| Goal assistant | `src/access/interview.ts` (limits, transcripts), `interview-prompt.ts`, `interview-model.ts` (the only file using the Anthropic SDK) |
+| Netlify Functions | `netlify/functions/requests.ts`, `interview.ts`, `prune-interviews.ts` (daily); config in `netlify.toml` |
+| Site panel and results page | `web/components/AccessCodeRequest.tsx`, `GoalInterview.tsx`, `web/app/results/` |
 | Your commands | `code:new`, `request:list`, `request:fulfil` (in `scripts/`) |
 
 ## One-time setup
@@ -147,6 +150,49 @@ npm.cmd run request:fulfil -- <id> --decline --note "Docs need a login"   # decl
 | Published | The result replay with downloads |
 | Declined | "Declined", with your note |
 
+## Goal assistant
+
+After a valid code, a short chat writes the goal: the assistant (`claude-haiku-5-5`) asks up to 6 questions (what they're building, which events, webhooks or not, which systems), then proposes a goal of at most 300 characters. The visitor edits it and sends the request. The first question is fixed text, so it costs nothing.
+
+**Limits** (in code, `INTERVIEW_LIMITS` in `src/access/interview.ts`; the prompt doesn't enforce anything):
+
+| Limit | Value |
+| --- | --- |
+| Questions per conversation | 6, the opening question included; then the next reply must be the goal |
+| Visitor message | 500 characters |
+| Tokens per conversation | 20,000 (input + output); past this, the next reply must be the goal |
+| Idle time | 30 minutes, then the visitor writes the goal by hand |
+| Conversations per code | 5 a day (UTC), 20 in total; separate from the code's request limits |
+| Conversations, all codes | 50 a day |
+| Each reply | 400 output tokens, low effort, no thinking, no tools |
+
+Wrong codes count toward the same per-IP throttle as requests (10 per hour).
+
+**Untrusted visitor text.** Visitor messages reach the model only inside `<<<VISITOR ... VISITOR>>>`, with any delimiters in them removed first. The system prompt says they are data and that the assistant only helps write the goal. The reply must match a JSON schema (`kind`, `text`, `goal`), which code checks again. The site shows replies as plain text. The model never fetches the URL. The goal still goes through the scout run's own `GOAL_INSTRUCTIONS`, and you see it in `request:fulfil` before any paid run.
+
+**Transcripts** are stored in Blobs (`interviews/<id>`) for 14 days, which the panel tells visitors. `request:fulfil` prints the conversation under the request. The `prune-interviews` function deletes expired ones daily, and `request:list` does it too.
+
+**Fallbacks.** If the assistant is off, has no key, is over a limit, or doesn't answer, the visitor gets the plain goal box and can still send the request.
+
+### Setup
+
+1. **Anthropic Console** (<https://platform.claude.com>), in the **scout-demo** workspace:
+   - **Settings > Workspaces > scout-demo > Limits:** check the monthly spend limit. $5 covers about 1,500 conversations.
+   - **Settings > API keys > Create key:** name it `scout-interviewer` and pick the **scout-demo** workspace. Copy the key. Never use your local `.env` key here.
+2. **Netlify > Project configuration > Environment variables**, add:
+
+   | Key | Value | Secret |
+   | --- | --- | --- |
+   | `INTERVIEW_API_KEY` | The `scout-interviewer` key | Yes |
+   | `INTERVIEW_ENABLED` | `on` (`off` turns the assistant off) | No |
+
+   Then **Deploys > Trigger deploy > Deploy project**. The commit that adds the functions triggers a deploy by itself.
+3. **Check the functions:** **Logs > Functions** should list `interview` and `prune-interviews` (the latter marked as scheduled).
+
+**Turn it off:** set `INTERVIEW_ENABLED` to `off` and redeploy. Visitors with a code then see the plain goal box. To stop all spending at once, revoke the `scout-interviewer` key in the Console; visitors get the same fallback.
+
+**Cost:** about $0.003 per conversation ($0.10 per million input tokens, $0.50 per million output tokens; about 15,000 input and 2,000 output tokens over 7 calls). At the 20,000-token cap a conversation stays under $0.01, so 50 a day is at most about $0.50 a day; the workspace spend limit caps the month.
+
 ## Revoke, pause, limits
 
 - **Revoke one code:** delete its entry from `ACCESS_CODES`, then **Trigger deploy**. The other codes keep working. Its counters stay in Blobs, so adding it back doesn't reset its limits.
@@ -159,7 +205,8 @@ npm.cmd run request:fulfil -- <id> --decline --note "Docs need a login"   # decl
 | --- | --- |
 | GitHub Pages, Telegram | $0 |
 | Netlify Free (300 credits a month) | Each production deploy costs 15 credits. `netlify.toml` has an `ignore` rule, so Netlify rebuilds only when `netlify/`, `src/access/`, `src/core/goal.ts`, `worker/safe-fetch.ts`, `netlify.toml` or the root package files change (so adding an npm script also costs one deploy). Publishing results doesn't trigger a Netlify deploy. Requests cost about 2 credits per 10,000. At 300 credits the project is paused until next month; it never bills you. |
-| Anthropic | Only the runs you approve: about $0.11 to $0.13 per 5-page run (recordings from 2026-10-07 and 2026-10-09) |
+| Anthropic, goal assistant | About $0.003 per conversation, at most 50 a day; capped by the scout-demo workspace's spend limit (see [Goal assistant](#goal-assistant)) |
+| Anthropic, runs | Only the runs you approve: about $0.11 to $0.13 per 5-page run (recordings from 2026-10-07 and 2026-10-09) |
 
 ## Troubleshooting
 
@@ -170,6 +217,8 @@ npm.cmd run request:fulfil -- <id> --decline --note "Docs need a login"   # decl
 | "This access code isn't valid" for a new code | Netlify wasn't redeployed after `ACCESS_CODES` changed, or the entry was mistyped (see **Logs > Functions**). |
 | No Telegram message | The request is still stored; check `npm.cmd run request:list`. The error is in **Logs > Functions > requests**. Check `TELEGRAM_CHAT_ID`, and that you pressed **Start** in the bot. |
 | `request:list` says to set `NETLIFY_SITE_ID` | Step 6. |
+| The chat never starts; visitors get the plain goal box | `INTERVIEW_ENABLED` is `off` or `INTERVIEW_API_KEY` is missing, or Netlify wasn't redeployed after setting them. |
+| "The goal assistant didn't answer" | The Anthropic call failed or took over 4.5 s twice; the reason is in **Logs > Functions > interview**. A spend limit reached in the Console shows up here too. |
 | A Netlify deploy shows **Canceled** | Expected: the `ignore` rule skipped a commit that doesn't affect the API. |
 
 ## Later: live runs (option A)

@@ -1,16 +1,20 @@
 import { parseArgs } from "node:util";
-import { listRequests } from "../src/access/index.js";
+import { listRequests, pruneInterviews } from "../src/access/index.js";
 import { describeRequest, openRequestStore } from "./requests-lib.js";
 
 /**
  * Lists requests from the Netlify store, oldest first. Pending only by default,
- * so a request whose Telegram message failed is never missed.
+ * so a request whose Telegram message failed is never missed. Also deletes
+ * interview transcripts past their 14 days (a daily function does it too).
  * Usage: npm run request:list [-- --all]
  */
 
 try {
   const { values } = parseArgs({ options: { all: { type: "boolean", default: false } } });
-  const requests = await listRequests(openRequestStore(), { all: values.all });
+  const store = openRequestStore();
+  const pruned = await pruneInterviews(store);
+  if (pruned) console.log(`Deleted ${pruned} interview transcript(s) older than 14 days.\n`);
+  const requests = await listRequests(store, { all: values.all });
   if (!requests.length) {
     console.log(values.all ? "No requests yet." : "No pending requests.");
   } else {

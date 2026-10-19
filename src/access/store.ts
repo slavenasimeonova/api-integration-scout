@@ -3,7 +3,17 @@
  * production (netlify/functions, scripts), MemoryKv in tests; a file or Redis
  * store can implement it for a container later.
  */
-/** The Netlify Blobs store holding requests, counters and throttle entries. */
+import { randomBytes } from "node:crypto";
+
+/** Record ids (requests, interviews): 26 lowercase base-36 characters. */
+export const RECORD_ID = /^[a-z0-9]{26}$/;
+
+export function newId(): string {
+  // 26 base-36 chars from 160 random bits; unguessable, so the id is the visitor's only key.
+  return BigInt(`0x${randomBytes(20).toString("hex")}`).toString(36).padStart(31, "0").slice(-26);
+}
+
+/** The Netlify Blobs store holding requests, interviews, counters and throttle entries. */
 export const REQUEST_STORE = "scout-requests";
 
 export type KvStore = {
@@ -11,6 +21,7 @@ export type KvStore = {
   setJSON(key: string, value: unknown): Promise<void>;
   /** Keys starting with prefix. */
   list(prefix: string): Promise<string[]>;
+  delete(key: string): Promise<void>;
 };
 
 export class MemoryKv implements KvStore {
@@ -25,6 +36,9 @@ export class MemoryKv implements KvStore {
   async list(prefix: string): Promise<string[]> {
     return [...this.data.keys()].filter((k) => k.startsWith(prefix)).sort();
   }
+  async delete(key: string): Promise<void> {
+    this.data.delete(key);
+  }
 }
 
 /** The subset of @netlify/blobs' Store used here (structural, so this file has no dependency). */
@@ -32,6 +46,7 @@ type BlobStore = {
   get(key: string, options: { type: "json" }): Promise<unknown>;
   setJSON(key: string, value: unknown): Promise<unknown>;
   list(options: { prefix: string }): Promise<{ blobs: { key: string }[] }>;
+  delete(key: string): Promise<unknown>;
 };
 
 export function blobsKv(store: BlobStore): KvStore {
@@ -44,6 +59,9 @@ export function blobsKv(store: BlobStore): KvStore {
     },
     async list(prefix) {
       return (await store.list({ prefix })).blobs.map((b) => b.key).sort();
+    },
+    async delete(key) {
+      await store.delete(key);
     },
   };
 }

@@ -137,17 +137,20 @@ export function Scout() {
             className={styles.input}
           />
         </div>
-        <textarea
-          id="goal"
-          aria-label="Goal (optional)"
-          placeholder="Goal (optional), e.g. receive tracking events by webhook"
-          maxLength={MAX_GOAL_CHARS}
-          rows={2}
-          value={goal}
-          onChange={(e) => setGoal(e.target.value)}
-          disabled={running || STATIC_DEMO}
-          className={`${styles.input} ${styles.goal}`}
-        />
+        {/* In the public demo, the goal comes from the goal assistant after an access code. */}
+        {!STATIC_DEMO && (
+          <textarea
+            id="goal"
+            aria-label="Goal (optional)"
+            placeholder="Goal (optional), e.g. receive a webhook when a new issue is opened"
+            maxLength={MAX_GOAL_CHARS}
+            rows={2}
+            value={goal}
+            onChange={(e) => setGoal(e.target.value)}
+            disabled={running}
+            className={`${styles.input} ${styles.goal}`}
+          />
+        )}
         <div className={styles.actions}>
           {running ? (
             <button type="button" className="btn" onClick={() => controller.current?.abort()}>
@@ -177,6 +180,12 @@ export function Scout() {
 
       {STATIC_DEMO && REQUEST_API && (
         <div style={{ marginTop: "0.8rem" }}>
+          <p className="small" style={{ margin: "0 0 0.5rem" }}>
+            Try the saved examples below for free. To analyze your own docs, request an access code.{" "}
+            <a href={AUTHOR.linkedin} target="_blank" rel="noreferrer noopener">
+              Request a code
+            </a>
+          </p>
           <AccessCodeRequest />
         </div>
       )}

@@ -15,6 +15,7 @@ export function createTelegramNotifier(opts: { token: string; chatId: string; fe
       `Code: ${request.codeName}`,
       `URL: ${request.url}`,
       ...(request.goal ? [`Goal: ${request.goal}`] : []),
+      ...(request.interviewId ? ["Goal written with the goal assistant (transcript in request:fulfil)"] : []),
       `Time: ${request.createdAt}`,
       `Today: ${usage.today}/${usage.perDay}, total: ${usage.total}/${usage.maxTotal}`,
       "",
