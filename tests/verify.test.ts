@@ -3,7 +3,7 @@ import { DEFAULT_CONFIG } from "../src/core/config.js";
 import { createEmitter } from "../src/core/events.js";
 import type { AgentOutput } from "../src/core/schema.js";
 import { DocsSession } from "../src/core/tools.js";
-import { normalizeForMatch, quoteAppearsIn, verifyAnalysis } from "../src/core/verify.js";
+import { normalizeForMatch, pathOnCitedPage, quoteAppearsIn, verifyAnalysis } from "../src/core/verify.js";
 import { ACME_ROOT, createFixtureFetcher } from "./helpers/fixtures.js";
 
 const RATE_URL = "https://docs.acmeweather.example/rate-limits";
@@ -144,11 +144,64 @@ describe("verifyAnalysis", () => {
     ]);
   });
 
+  // From the GitHub webhooks run (2026-10-19): the quote was real, but about the web UI and
+  // "the REST API" in general; the path itself was on no fetched page.
+  it("downgrades a documented endpoint whose path isn't on the cited page, even with a verified quote", () => {
+    const { output: out, downgrades } = verifyAnalysis(
+      output({
+        endpoints: [
+          {
+            status: "documented",
+            value: { method: "POST", path: "/alerts/subscribe", purpose: "Subscribe to alerts (path assumed)", keyParams: [] },
+            sources: [{ url: "https://docs.acmeweather.example/endpoints", quote: "Returns a 7-day forecast for a city." }],
+          },
+          {
+            status: "documented",
+            value: { method: "GET", path: "/locations/{location_id}", purpose: "One location", keyParams: [] },
+            sources: [{ url: "https://docs.acmeweather.example/endpoints", quote: "Returns a 7-day forecast for a city." }],
+          },
+        ],
+      }),
+      session.pages,
+    );
+    expect(out.endpoints[0]?.status).toBe("inferred");
+    expect(out.endpoints[0]?.reasoning).toMatch(/Downgraded from documented: its path was not found on the cited page/);
+    // The quote is still true, so it is kept as context; only the status changes.
+    expect(out.endpoints[0]?.sources[0]?.quote).toBe("Returns a 7-day forecast for a city.");
+    expect(out.endpoints[1]?.status).toBe("documented");
+    expect(downgrades).toEqual([{ field: "endpoints[0] POST /alerts/subscribe", reason: "its path was not found on the cited page" }]);
+  });
+
   it("forces not_found values to null", () => {
     const { output: out } = verifyAnalysis(
       output({ pagination: { status: "not_found", value: { style: "none", parameters: [], description: "" }, sources: [] } }),
       session.pages,
     );
     expect(out.pagination.value).toBeNull();
+  });
+});
+
+describe("pathOnCitedPage", () => {
+  const URL_ = "https://docs.example/api";
+  const pages = new Map([[URL_, { url: URL_, title: "API", text: "Create one: POST /repos/OCTO/hello/hooks/{hook_id}/pings. Fetch https://api.example.com/v2/items/42?full=1 or GET /users/:user_id." }]]);
+  const on = (path: string) => pathOnCitedPage(path, [{ url: URL_ }], pages);
+
+  it("lets placeholders match any value, in either style", () => {
+    expect(on("/repos/{owner}/{repo}/hooks/{id}/pings")).toBe(true);
+    expect(on("/v2/items/{item_id}")).toBe(true);
+    expect(on("/items/{id}")).toBe(true);
+    expect(on("/users/{user}")).toBe(true);
+    expect(on("https://api.example.com/v2/items/{id}")).toBe(true);
+  });
+
+  it("requires the literal parts and the end of the path", () => {
+    expect(on("/repos/{owner}/{repo}/hooks")).toBe(false);
+    expect(on("/v2/item/{id}")).toBe(false);
+    expect(on("/user/{id}")).toBe(false);
+    expect(on("/")).toBe(false);
+  });
+
+  it("only looks at cited pages that were fetched", () => {
+    expect(pathOnCitedPage("/users/{id}", [{ url: "https://docs.example/other" }], pages)).toBe(false);
   });
 });

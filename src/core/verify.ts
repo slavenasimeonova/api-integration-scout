@@ -56,8 +56,17 @@ export function verifyAnalysis(output: AgentOutput, pages: ReadonlyMap<string, S
   );
   result.endpoints = result.endpoints.map((ep, i) => {
     const label = ep.value ? `${ep.value.method} ${ep.value.path}` : `#${i + 1}`;
-    const checked = check(`endpoints[${i}] ${label}`, ep);
-    if (!checked.value) return checked;
+    const quoted = check(`endpoints[${i}] ${label}`, ep);
+    if (!quoted.value) return quoted;
+    let checked = { ...quoted, value: quoted.value };
+    // A verified quote isn't enough: it can be true but about something else (a real run cited
+    // "you can use the REST API to create a webhook" for a path no fetched page mentioned).
+    if (checked.status === "documented" && !pathOnCitedPage(checked.value.path, checked.sources, pages)) {
+      const reason = "its path was not found on the cited page";
+      downgrades.push({ field: `endpoints[${i}] ${label}`, reason });
+      const note = `Downgraded from documented: ${reason}.`;
+      checked = { ...checked, status: "inferred", reasoning: checked.reasoning ? `${checked.reasoning} ${note}` : note };
+    }
     // exampleBodyFrom is set here, never taken from the model.
     const { exampleBodyFrom: _claimed, ...unflagged } = checked.value;
     let value: typeof checked.value = unflagged;
@@ -211,6 +220,28 @@ function citedPages(sources: Source[], pages: ReadonlyMap<string, StoredPage>): 
     const page = pages.get(normalizeUrl(s.url, s.url) ?? s.url);
     return page ? [page] : [];
   });
+}
+
+/**
+ * True when an endpoint path appears on a cited page. Literal parts must match
+ * exactly (case-insensitive); a placeholder ({id} or :id) matches any value, so
+ * /locations/{id} is found in "/locations/{location_id}" or "/locations/42".
+ * The path must end there: /hooks doesn't match /hooks/{hook_id}.
+ */
+export function pathOnCitedPage(path: string, sources: Source[], pages: ReadonlyMap<string, StoredPage>): boolean {
+  const pattern = pathPattern(path);
+  return pattern !== null && citedPages(sources, pages).some((p) => pattern.test(p.text));
+}
+
+function pathPattern(path: string): RegExp | null {
+  const bare = path.trim().replace(/^[a-z][a-z0-9+.-]*:\/\/[^/]+/i, "").replace(/[?#].*$/, "").replace(/\/+$/, "");
+  if (!bare.startsWith("/") || bare.length < 2) return null;
+  const value = "[^\\s/?#]+";
+  const source = bare
+    .split(/(\{[^{}]*\}|(?<=\/):[A-Za-z_][A-Za-z0-9_]*)/)
+    .map((part, i) => (i % 2 === 1 ? value : part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")))
+    .join("");
+  return new RegExp(`${source}(?![A-Za-z0-9_-]|/[^\\s?#])`, "i");
 }
 
 function onCitedPage(text: string, sources: Source[], pages: ReadonlyMap<string, StoredPage>): boolean {
