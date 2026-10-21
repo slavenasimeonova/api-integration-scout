@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { friendlyError } from "@/lib/api-errors";
 import { REQUEST_API } from "@/lib/site";
 import styles from "./Scout.module.css";
 
@@ -51,9 +52,9 @@ export function GoalInterview({ interviewId, turns, questionsLeft, onTurns, onGo
         if (body.status === "goal") onGoal(body.goal ?? "");
       } else if (res.status === 502 || res.status === 400) {
         // Nothing was saved: the visitor can retry or shorten the answer.
-        setError(body.message ?? `The assistant didn't answer (HTTP ${res.status}).`);
+        setError(friendlyError(body.error, "interview"));
       } else {
-        onGoal("", body.message ?? "The conversation ended. Please write the goal yourself.");
+        onGoal("", friendlyError(body.error, "interview"));
       }
     } catch {
       setError("Couldn't reach the goal assistant. Try again, or write the goal yourself.");

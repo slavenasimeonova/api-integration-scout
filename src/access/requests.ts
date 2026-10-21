@@ -1,6 +1,6 @@
 import { normalizeGoal } from "../core/goal.js";
-import { checkAccessCode, type AccessCode } from "./codes.js";
-import { jsonResponder } from "./http.js";
+import { checkAccessCode, MAX_CODE_INPUT, MAX_URL_CHARS, type AccessCode } from "./codes.js";
+import { describeBody, jsonResponder } from "./http.js";
 import { interviewKey, type InterviewRecord } from "./interview.js";
 import { newId, RECORD_ID, type KvStore } from "./store.js";
 import type { Notify } from "./telegram.js";
@@ -78,15 +78,18 @@ export async function handleRequestApi(req: Request, deps: RequestApiDeps): Prom
 
   // New request.
   if (!deps.enabled) return fail(503, "paused", "Requests are paused right now. Please try again later.");
-  let body: { code?: unknown; url?: unknown; goal?: unknown; interviewId?: unknown };
+  let body: { code?: unknown; url?: unknown; goal?: unknown; interviewId?: unknown } | undefined;
   try {
     body = (await req.json()) as typeof body;
   } catch {
+    body = undefined;
+  }
+  if (!body || typeof body.code !== "string" || typeof body.url !== "string") {
+    log(`[requests] invalid_body: ${describeBody(req, body)}`);
     return fail(400, "invalid_body", "Send JSON: { code, url, goal? }.");
   }
-  if (typeof body.code !== "string" || typeof body.url !== "string" || body.code.length > 100 || body.url.length > 2000) {
-    return fail(400, "invalid_body", "Send JSON: { code, url, goal? }.");
-  }
+  if (body.code.length > MAX_CODE_INPUT) return fail(401, "invalid_code", "This access code isn't valid.");
+  if (body.url.length > MAX_URL_CHARS) return fail(400, "invalid_url", "This URL is too long.");
   let goal: string | undefined;
   try {
     if (body.goal !== undefined && body.goal !== null && typeof body.goal !== "string") throw new Error("The goal must be text.");

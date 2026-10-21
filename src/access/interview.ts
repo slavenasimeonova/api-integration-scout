@@ -1,6 +1,6 @@
 import { normalizeGoal, MAX_GOAL_CHARS } from "../core/goal.js";
-import { checkAccessCode, type AccessCode } from "./codes.js";
-import { jsonResponder } from "./http.js";
+import { checkAccessCode, MAX_CODE_INPUT, MAX_URL_CHARS, type AccessCode } from "./codes.js";
+import { describeBody, jsonResponder } from "./http.js";
 import { FINISH_NOTE, INTERVIEW_SYSTEM, OPENING_QUESTION, REDIRECT_REPLY, wrapDocsUrl, wrapVisitor } from "./interview-prompt.js";
 import { newId, RECORD_ID, type KvStore } from "./store.js";
 
@@ -107,9 +107,12 @@ export async function handleInterviewApi(req: Request, deps: InterviewApiDeps): 
   if (path === "/api/interview" && req.method === "POST") {
     if (!deps.requestsEnabled) return fail(503, "paused", "Requests are paused right now. Please try again later.");
     const input = await body<{ code?: unknown; url?: unknown }>();
-    if (!input || typeof input.code !== "string" || typeof input.url !== "string" || input.code.length > 100 || input.url.length > 2000) {
+    if (!input || typeof input.code !== "string" || typeof input.url !== "string") {
+      log(`[interview] invalid_body: ${describeBody(req, input)}`);
       return fail(400, "invalid_body", "Send JSON: { code, url }.");
     }
+    if (input.code.length > MAX_CODE_INPUT) return fail(401, "invalid_code", "This access code isn't valid.");
+    if (input.url.length > MAX_URL_CHARS) return fail(400, "invalid_url", "This URL is too long.");
     const at = now();
     const checked = await checkAccessCode(deps, input.code, at);
     if (!("code" in checked)) return fail(checked.status, checked.error, checked.message);
@@ -175,7 +178,10 @@ export async function handleInterviewApi(req: Request, deps: InterviewApiDeps): 
   const input = await body<{ message?: unknown; finish?: unknown }>();
   const message = typeof input?.message === "string" ? input.message.trim() : "";
   const finish = input?.finish === true;
-  if (!input || (input.message !== undefined && typeof input.message !== "string")) return fail(400, "invalid_body", "Send JSON: { message, finish? }.");
+  if (!input || (input.message !== undefined && typeof input.message !== "string")) {
+    log(`[interview] invalid_body: ${describeBody(req, input)}`);
+    return fail(400, "invalid_body", "Send JSON: { message, finish? }.");
+  }
   if (message.length > limits.maxMessageChars) return fail(400, "message_too_long", `Please keep each answer under ${limits.maxMessageChars} characters.`);
   if (!message && !finish) return fail(400, "empty_message", "Please type an answer.");
 

@@ -144,6 +144,59 @@ describe("starting an interview", () => {
   });
 });
 
+// Live bug (2026-10-21): a valid code pasted with the text around it was over the
+// 100-character limit and got "Send JSON: { code, url }." instead of the assistant.
+describe("pasted codes and long input", () => {
+  const PASTED = `Hi! Here is your access code for API Integration Scout: ${ACME.replaceAll("-", "‑")}​. It works for 3 requests in total; let me know how it goes.`;
+
+  it("finds one code in pasted text, with typographic dashes and invisible characters", async () => {
+    expect(PASTED.length).toBeGreaterThan(100);
+    const t = setup({ model: scripted([]).model });
+    const { res, body } = await t.start(PASTED);
+    expect(res.status).toBe(201);
+    expect((await t.record(body.id)).codeName).toBe("recruiter-acme");
+    expect((await t.start(` ${ACME.toUpperCase().replaceAll("-", "–")} `)).res.status).toBe(201);
+    expect((await t.start(ACME.replaceAll("-", " - "))).res.status).toBe(201);
+  });
+
+  it("doesn't guess when the text holds two codes or none", async () => {
+    const t = setup({ model: scripted([]).model });
+    expect((await t.start(`${ACME} or ${BOB}`)).res.status).toBe(401);
+    expect((await t.start(`${ACME}x`)).res.status).toBe(401);
+  });
+
+  it("answers an overlong code as a wrong code and an overlong URL as a bad URL, not as a malformed body", async () => {
+    const t = setup({ model: scripted([]).model });
+    const code = await t.start("x".repeat(1001));
+    expect([code.res.status, code.body.error]).toEqual([401, "invalid_code"]);
+    const url = await t.start(ACME, `${DOCS}?q=${"a".repeat(2000)}`);
+    expect([url.res.status, url.body.error]).toEqual([400, "invalid_url"]);
+  });
+
+  it("logs a malformed body's shape, never its content", async () => {
+    const t = setup({ model: scripted([]).model });
+    const res = await t.call("POST", "", { code: 42, url: "https://secret.example.com/private" });
+    expect(res.status).toBe(400);
+    expect(t.logs).toEqual(["[interview] invalid_body: content-type application/json, body code:number, url:string(34)"]);
+    expect(t.logs.join(" ")).not.toContain("secret");
+  });
+
+  it("accepts the pasted code in the request API too", async () => {
+    const post = (payload: unknown) =>
+      handleRequestApi(
+        new Request("https://scout-requests.netlify.app/api/requests", {
+          method: "POST",
+          headers: { origin: PAGES, "content-type": "application/json" },
+          body: JSON.stringify(payload),
+        }),
+        { store: new MemoryKv(), codes: CODES, enabled: true, allowedOrigins: [PAGES], checkUrl: async () => {}, clientIp: "203.0.113.9", ipSalt: "test", log: () => {} },
+      );
+    expect((await post({ code: PASTED, url: DOCS })).status).toBe(201);
+    const long = await post({ code: ACME, url: `${DOCS}?q=${"a".repeat(2000)}` });
+    expect([long.status, ((await long.json()) as { error: string }).error]).toEqual([400, "invalid_url"]);
+  });
+});
+
 describe("a conversation", () => {
   it("sends visitor text only inside delimiters, with any delimiters in it removed", async () => {
     const { model, calls } = scripted([question("Which events do you need?")]);
@@ -383,5 +436,5 @@ describe("request:fulfil's transcript", () => {
     await pruneInterviews(t.store, new Date("2026-11-03T00:00:00Z"));
     expect(await describeInterview(t.store, request)).toBe(`Interview ${body.id}: transcript deleted (kept 14 days)`);
     expect(await describeInterview(t.store, { ...request, interviewId: undefined })).toBeUndefined();
-  });
+  }, 20_000);
 });

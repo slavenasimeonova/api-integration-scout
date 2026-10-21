@@ -215,6 +215,7 @@ Wrong codes count toward the same per-IP throttle as requests (10 per hour).
 | No "Have an access code?" panel | `REQUEST_API_URL` isn't set, or Pages wasn't rebuilt since (step 5). |
 | "Couldn't reach the request service" | The Netlify project is down or paused, or `ALLOWED_ORIGIN` doesn't match the site's origin (scheme + host, no path). |
 | "This access code isn't valid" for a new code | Netlify wasn't redeployed after `ACCESS_CODES` changed, or the entry was mistyped (see **Logs > Functions**). |
+| "Something went wrong while checking your code" | The API rejected the request's shape (`invalid_body`). The panel never shows the API's own message; the cause, with each field's type and length but not its content, is in **Logs > Functions > interview** (or **requests**). |
 | No Telegram message | The request is still stored; check `npm.cmd run request:list`. The error is in **Logs > Functions > requests**. Check `TELEGRAM_CHAT_ID`, and that you pressed **Start** in the bot. |
 | `request:list` says to set `NETLIFY_SITE_ID` | Step 6. |
 | The chat never starts; visitors get the plain goal box | `INTERVIEW_ENABLED` is `off` or `INTERVIEW_API_KEY` is missing, or Netlify wasn't redeployed after setting them. |

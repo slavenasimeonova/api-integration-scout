@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { friendlyError } from "@/lib/api-errors";
 import { BASE_PATH, MAX_GOAL_CHARS, REQUEST_API } from "@/lib/site";
 import { GoalInterview, type Turn } from "./GoalInterview";
 import styles from "./Scout.module.css";
@@ -52,10 +53,10 @@ export function AccessCodeRequest() {
         setStep("confirm");
       } else if (res.status === 429 && body.error?.startsWith("interview_limit")) {
         // The code is valid; only the assistant is out of conversations.
-        setNotice(body.message);
+        setNotice(friendlyError(body.error, "interview"));
         setStep("confirm");
       } else {
-        setError(body.message ?? `The check failed (HTTP ${res.status}).`);
+        setError(friendlyError(body.error, "code"));
       }
     } catch {
       setError("Couldn't reach the request service. Please try again later.");
@@ -86,7 +87,7 @@ export function AccessCodeRequest() {
       } else {
         // An expired conversation only loses the link to its transcript; the goal is still in the box.
         if (body.error === "invalid_interview") setInterviewId(undefined);
-        setError(body.message ?? `The request failed (HTTP ${res.status}).`);
+        setError(friendlyError(body.error, "request"));
       }
     } catch {
       setError("Couldn't reach the request service. Please try again later.");

@@ -19,10 +19,25 @@ const HASH = /^[0-9a-f]{64}$/;
 // No 0/O, 1/I/L: codes are typed by hand.
 const ALPHABET = "abcdefghjkmnpqrstuvwxyz23456789";
 
-/** Codes are compared case- and space-insensitively. */
+/** A whole code inside longer text, e.g. the message it was sent in. */
+const CODE_IN_TEXT = /(?<![a-z0-9])scout(?:-[a-z0-9]{4,6}){4}(?![a-z0-9])/g;
+
+/**
+ * Codes are compared case- and space-insensitively. Codes copied from a chat
+ * app or a document can carry invisible characters, typographic dashes or the
+ * text around them, so those are cleaned up and a single code in the text is
+ * taken. Generated codes are plain ASCII, so their hashes are unaffected.
+ */
 export function normalizeCode(code: string): string {
-  return code.trim().toLowerCase().replace(/\s+/g, "");
+  const cleaned = code.normalize("NFKC").replace(/\p{Cf}/gu, "").replace(/\p{Pd}/gu, "-").toLowerCase();
+  const found = cleaned.match(CODE_IN_TEXT);
+  return found?.length === 1 ? found[0]! : cleaned.trim().replace(/\s+/g, "");
 }
+
+/** Longest code input accepted, so a code pasted with its message still works. */
+export const MAX_CODE_INPUT = 1000;
+/** Longest docs URL accepted. */
+export const MAX_URL_CHARS = 2000;
 
 export function hashCode(code: string): string {
   return createHash("sha256").update(normalizeCode(code)).digest("hex");
