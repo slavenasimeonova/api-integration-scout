@@ -78,6 +78,32 @@ export type InterviewApiDeps = {
 
 export const interviewKey = (id: string) => `interviews/${id}`;
 
+/**
+ * The last failed model call, overwritten by the next one; request:list shows it.
+ * Netlify keeps function logs only while you watch them (stored logs need Analytics),
+ * so without this a failure that happened earlier can't be diagnosed.
+ */
+export const LAST_MODEL_ERROR_KEY = "diagnostics/interview-last-model-error";
+
+export type ModelErrorSummary = { at: string; interviewId: string; name: string; status?: number; requestId?: string; message: string };
+
+/** Key-shaped text and long opaque tokens are removed, so the summary is safe to store and print. */
+export function summarizeModelError(err: unknown, interviewId: string, at: string): ModelErrorSummary {
+  const e = (typeof err === "object" && err !== null ? err : {}) as { name?: unknown; status?: unknown; requestID?: unknown; message?: unknown };
+  const message = String(e.message ?? err)
+    .replace(/sk-ant-[A-Za-z0-9_-]*/g, "[key]")
+    .replace(/[A-Za-z0-9_-]{32,}/g, "[redacted]")
+    .slice(0, 300);
+  return {
+    at,
+    interviewId,
+    name: typeof e.name === "string" ? e.name : "Error",
+    ...(typeof e.status === "number" ? { status: e.status } : {}),
+    ...(typeof e.requestID === "string" && /^req_[A-Za-z0-9]{1,64}$/.test(e.requestID) ? { requestId: e.requestID } : {}),
+    message,
+  };
+}
+
 // Code names start with a letter or digit, so "_ip" and "_global" can't collide with a code's counters.
 const IP_COUNTERS = "counters/_ip/";
 const counterKeys = (ipHash: string, day: string) => ({
@@ -215,8 +241,10 @@ export async function handleInterviewApi(req: Request, deps: InterviewApiDeps): 
       ],
     });
   } catch (err) {
-    // Nothing is saved, so the visitor can retry the same answer.
-    log(`[interview] model call failed for ${id}: ${err instanceof Error ? err.message : String(err)}`);
+    // The conversation is unchanged, so the visitor can retry the same answer.
+    const summary = summarizeModelError(err, id, iso);
+    log(`[interview] model call failed for ${id}: ${summary.name}${summary.status ? ` ${summary.status}` : ""}: ${summary.message}`);
+    await deps.store.setJSON(LAST_MODEL_ERROR_KEY, summary).catch(() => {});
     return fail(502, "assistant_unavailable", "The goal assistant didn't answer. Try again, or write the goal yourself.");
   }
   const tokens = record.tokens + result.inputTokens + result.outputTokens;

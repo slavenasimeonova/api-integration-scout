@@ -7,14 +7,17 @@ import {
   hashCode,
   INTERVIEW_LIMITS,
   interviewKey,
+  LAST_MODEL_ERROR_KEY,
   MemoryKv,
   parseAccessCodes,
   pruneInterviews,
   requestKey,
+  summarizeModelError,
   type InterviewApiDeps,
   type InterviewModel,
   type InterviewRecord,
   type InterviewReply,
+  type ModelErrorSummary,
   type ScoutRequest,
 } from "../src/access/index.js";
 import { createClaudeInterviewModel, parseReply } from "../src/access/interview-model.js";
@@ -288,6 +291,33 @@ describe("a conversation", () => {
     expect((await t.record(body.id)).turns).toHaveLength(1);
     expect(t.logs[0]).toContain("model call failed");
     expect((await t.say(body.id, "a1")).body.message).toBe("Q2");
+  });
+
+  // Live bug (2026-10-23): "The assistant didn't answer", and Netlify's function logs
+  // couldn't be read afterwards (stored logs need Analytics), so the cause was unknown.
+  it("stores a redacted summary of the failure for request:list", async () => {
+    // What the Anthropic SDK throws for a rejected key; the fake key is assembled so scanners don't see one.
+    const fakeKey = ["sk", "ant", "api03", "x".repeat(40)].join("-");
+    const err = Object.assign(new Error(`401 {"type":"error","error":{"type":"authentication_error","message":"invalid x-api-key ${fakeKey}"}}`), {
+      name: "AuthenticationError",
+      status: 401,
+      requestID: "req_011CabcDEF",
+    });
+    const t = setup({ model: async () => Promise.reject(err) });
+    const { body } = await t.start();
+    const failed = await t.say(body.id, "A bot that labels new issues");
+    expect([failed.res.status, failed.body.error]).toEqual([502, "assistant_unavailable"]);
+    const saved = await t.store.getJSON<ModelErrorSummary>(LAST_MODEL_ERROR_KEY);
+    expect(saved).toMatchObject({ interviewId: body.id, name: "AuthenticationError", status: 401, requestId: "req_011CabcDEF", at: "2026-10-19T10:00:00.000Z" });
+    expect(saved?.message).toContain("authentication_error");
+    expect(JSON.stringify(saved) + t.logs.join(" ")).not.toContain("sk-ant");
+    expect(t.logs[0]).toContain("AuthenticationError 401");
+  });
+
+  it("summarizes errors without a status or a valid request id", () => {
+    expect(summarizeModelError("boom", "id1", "t")).toEqual({ at: "t", interviewId: "id1", name: "Error", message: "boom" });
+    const timeout = Object.assign(new Error("Request timed out."), { name: "APIConnectionTimeoutError", requestID: "not a request id" });
+    expect(summarizeModelError(timeout, "id1", "t")).toEqual({ at: "t", interviewId: "id1", name: "APIConnectionTimeoutError", message: "Request timed out." });
   });
 
   it("replies with a fixed redirect when the model refuses", async () => {

@@ -220,7 +220,7 @@ Without a code, the global cap is what bounds the cost: someone switching IPs st
 | No Telegram message | The request is still stored; check `npm.cmd run request:list`. The error is in **Logs > Functions > requests**. Check `TELEGRAM_CHAT_ID`, and that you pressed **Start** in the bot. |
 | `request:list` says to set `NETLIFY_SITE_ID` | Step 6. |
 | The chat never starts; visitors get the plain goal box | `INTERVIEW_ENABLED` is `off` or `INTERVIEW_API_KEY` is missing, or Netlify wasn't redeployed after setting them. |
-| "The goal assistant didn't answer" | The Anthropic call failed or took over 4.5 s twice; the reason is in **Logs > Functions > interview**. A spend limit reached in the Console shows up here too. |
+| "The assistant didn't answer" | The Anthropic call failed or took over 4.5 s twice. Run `npm.cmd run request:list`: it shows the last failed call (status, error type, request id and the API's message, with anything key-shaped removed). Netlify shows function logs only while you watch them unless Analytics is on, so this is often the only record. 401 = wrong or revoked `INTERVIEW_API_KEY`; 400 with "credit balance" or 429 = billing or the workspace spend limit in the Console. |
 | A Netlify deploy shows **Canceled** | Expected: the `ignore` rule skipped a commit that doesn't affect the API. |
 
 ## Later: live runs (option A)
