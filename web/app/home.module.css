@@ -35,7 +35,8 @@
   font-weight: 600;
 }
 
-.sample {
+/* .hero raises specificity: the global .card padding loads later and would win. */
+.hero .sample {
   padding: 0;
   margin: 0;
   overflow: hidden;
@@ -132,6 +133,23 @@
   .hero {
     grid-template-columns: minmax(0, 1fr);
     gap: 1.5rem;
+  }
+  /* Phones and narrow windows: the goal assistant comes right after the intro,
+     before the sample findings. The hero's children become items of the page
+     column so the assistant (order -1 in Scout.module.css) can sit between them. */
+  .home {
+    display: flex;
+    flex-direction: column;
+  }
+  .home > .hero {
+    display: contents;
+  }
+  .intro {
+    order: -2;
+    margin-bottom: 1.5rem;
+  }
+  .hero .sample {
+    margin-top: 1.5rem;
   }
   .steps {
     grid-template-columns: repeat(2, minmax(0, 1fr));

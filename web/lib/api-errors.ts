@@ -5,7 +5,7 @@
  * Error codes come from src/access/ (web/ can't import it).
  */
 
-export type ApiErrorContext = "code" | "interview" | "request";
+export type ApiErrorContext = "start" | "interview" | "request";
 
 const MESSAGES: Record<string, string> = {
   invalid_code: "This access code isn't valid. Please check that you copied the whole code.",
@@ -15,8 +15,7 @@ const MESSAGES: Record<string, string> = {
   invalid_goal: "Please keep the goal under 300 characters.",
   code_limit_day: "This code has used today's requests. Please try again tomorrow.",
   code_limit_total: "This code has used all its requests.",
-  interview_limit_day: "This code has used today's goal assistant conversations. Please write the goal yourself.",
-  interview_limit_total: "This code has used all its goal assistant conversations. Please write the goal yourself.",
+  interview_limit_ip: "You've used today's goal assistant conversations. Please write the goal yourself.",
   interview_limit_global: "The goal assistant is busy today. Please write the goal yourself.",
   interview_idle: "This conversation timed out. Please write the goal yourself.",
   interview_finished: "This conversation is finished. Please edit the goal below.",
@@ -28,7 +27,7 @@ const MESSAGES: Record<string, string> = {
 };
 
 const FALLBACK: Record<ApiErrorContext, string> = {
-  code: "Something went wrong while checking your code. Please try again in a few minutes.",
+  start: "Something went wrong while starting the goal assistant. Please try again in a few minutes.",
   interview: "The goal assistant ran into a problem. Please try again, or write the goal yourself.",
   request: "Something went wrong while sending your request. Please try again in a few minutes.",
 };

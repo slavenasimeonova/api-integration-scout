@@ -33,6 +33,7 @@
 .actions {
   display: flex;
   justify-content: flex-end;
+  gap: 0.5rem;
   margin-top: 0.5rem;
 }
 
@@ -91,6 +92,11 @@
   .inputRow {
     flex-direction: column;
   }
+}
+
+/* The goal assistant: first after the intro on narrow screens (see home.module.css). */
+.assistant {
+  order: -1;
 }
 
 /* Goal assistant chat (request mode). */

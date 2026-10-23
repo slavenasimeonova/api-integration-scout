@@ -92,6 +92,11 @@ export function findCode(codes: AccessCode[], input: string): AccessCode | undef
   return found;
 }
 
+/** A salted hash of the client IP for counter keys, so raw IPs are never stored. */
+export function hashIp(salt: string, ip: string | undefined): string {
+  return createHash("sha256").update(`${salt}:${ip ?? "unknown"}`).digest("hex").slice(0, 32);
+}
+
 /** Wrong codes allowed per IP per hour before the IP is throttled. */
 export const MAX_BAD_CODES_PER_HOUR = 10;
 
@@ -108,7 +113,7 @@ export async function checkAccessCode(
   at: Date,
 ): Promise<CodeCheck> {
   const hour = at.toISOString().slice(0, 13);
-  const ipHash = createHash("sha256").update(`${deps.ipSalt}:${deps.clientIp ?? "unknown"}`).digest("hex").slice(0, 32);
+  const ipHash = hashIp(deps.ipSalt, deps.clientIp);
   const throttleKey = `throttle/${hour}/${ipHash}`;
   const badCodes = (await deps.store.getJSON<{ count: number }>(throttleKey))?.count ?? 0;
   if (badCodes >= MAX_BAD_CODES_PER_HOUR) {

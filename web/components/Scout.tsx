@@ -6,7 +6,7 @@ import { EXAMPLES } from "@/lib/examples";
 import { runFigures } from "@/lib/figures";
 import { readNdjson } from "@/lib/ndjson";
 import { MAX_GOAL_CHARS, REQUEST_API, STATIC_DEMO } from "@/lib/site";
-import { AccessCodeRequest } from "./AccessCodeRequest";
+import { GoalAssistant } from "./GoalAssistant";
 import type { LimitStatus, ProgressEvent, RunResult, RunStreamLine } from "@/lib/types";
 import { Results } from "./Results";
 import { Timeline } from "./Timeline";
@@ -14,6 +14,9 @@ import { AUTHOR } from "./SiteChrome";
 import styles from "./Scout.module.css";
 
 type Phase = "idle" | "running" | "done" | "failed" | "cancelled";
+
+/** The public demo with request mode: the goal assistant replaces the (disabled) run form. */
+const ASSISTANT_FIRST = STATIC_DEMO && Boolean(REQUEST_API);
 
 function normalizeUrl(input: string): string | undefined {
   const raw = input.trim();
@@ -120,74 +123,74 @@ export function Scout() {
 
   return (
     <>
-      <form className={`card ${styles.form}`} onSubmit={start}>
-        <label htmlFor="docs-url" className={styles.label}>
-          Paste API docs URL
-        </label>
-        <div className={styles.inputRow}>
-          <input
-            id="docs-url"
-            type="text"
-            inputMode="url"
-            autoComplete="url"
-            placeholder="https://docs.example.com/api"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            disabled={running || STATIC_DEMO}
-            className={styles.input}
-          />
-        </div>
-        {/* In the public demo, the goal comes from the goal assistant after an access code. */}
-        {!STATIC_DEMO && (
-          <textarea
-            id="goal"
-            aria-label="Goal (optional)"
-            placeholder="Goal (optional), e.g. receive a webhook when a new issue is opened"
-            maxLength={MAX_GOAL_CHARS}
-            rows={2}
-            value={goal}
-            onChange={(e) => setGoal(e.target.value)}
-            disabled={running}
-            className={`${styles.input} ${styles.goal}`}
-          />
-        )}
-        <div className={styles.actions}>
-          {running ? (
-            <button type="button" className="btn" onClick={() => controller.current?.abort()}>
-              Cancel
-            </button>
-          ) : (
-            <button type="submit" className="btn btn-primary" disabled={STATIC_DEMO || !input.trim() || outOfRuns || limits === null}>
-              Scout it
-            </button>
-          )}
-        </div>
-        <p className="muted small">
-          {STATIC_DEMO ? (
-            <>
-              Live runs are disabled in this public demo to control API costs.{" "}
-              <a href={AUTHOR.github} target="_blank" rel="noreferrer noopener">
-                Clone the repo
-              </a>{" "}
-              to run it locally.
-            </>
-          ) : (
-            <LimitsNote limits={limits} />
-          )}
-        </p>
-        {error && phase === "idle" && <p className="error-box small">{error}</p>}
-      </form>
-
-      {STATIC_DEMO && REQUEST_API && (
-        <div style={{ marginTop: "0.8rem" }}>
-          <p className="small" style={{ margin: "0 0 0.5rem" }}>
+      {ASSISTANT_FIRST ? (
+        <>
+          <GoalAssistant />
+          <p className="small" style={{ margin: "0.8rem 0 0" }}>
             Try the saved examples below for free. To analyze your own docs, request an access code.{" "}
             <a href={AUTHOR.linkedin} target="_blank" rel="noreferrer noopener">
               Request a code
             </a>
           </p>
-          <AccessCodeRequest />
-        </div>
+        </>
+      ) : (
+        <form className={`card ${styles.form}`} onSubmit={start}>
+          <label htmlFor="docs-url" className={styles.label}>
+            Paste API docs URL
+          </label>
+          <div className={styles.inputRow}>
+            <input
+              id="docs-url"
+              type="text"
+              inputMode="url"
+              autoComplete="url"
+              placeholder="https://docs.example.com/api"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              disabled={running || STATIC_DEMO}
+              className={styles.input}
+            />
+          </div>
+          {/* In the public demo, the goal comes from the goal assistant (or there is no request API at all). */}
+          {!STATIC_DEMO && (
+            <textarea
+              id="goal"
+              aria-label="Goal (optional)"
+              placeholder="Goal (optional), e.g. receive a webhook when a new issue is opened"
+              maxLength={MAX_GOAL_CHARS}
+              rows={2}
+              value={goal}
+              onChange={(e) => setGoal(e.target.value)}
+              disabled={running}
+              className={`${styles.input} ${styles.goal}`}
+            />
+          )}
+          <div className={styles.actions}>
+            {running ? (
+              <button type="button" className="btn" onClick={() => controller.current?.abort()}>
+                Cancel
+              </button>
+            ) : (
+              <button type="submit" className="btn btn-primary" disabled={STATIC_DEMO || !input.trim() || outOfRuns || limits === null}>
+                Scout it
+              </button>
+            )}
+          </div>
+          <p className="muted small">
+            {STATIC_DEMO ? (
+              <>
+                Live runs are disabled in this public demo to control API costs.{" "}
+                <a href={AUTHOR.github} target="_blank" rel="noreferrer noopener">
+                  Clone the repo
+                </a>{" "}
+                to run it locally.
+              </>
+            ) : (
+              <LimitsNote limits={limits} />
+            )}
+          </p>
+          {error && phase === "idle" && <p className="error-box small">{error}</p>}
+        </form>
       )}
 
       <section className={styles.examples} aria-label="Examples">

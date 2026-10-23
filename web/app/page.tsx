@@ -36,9 +36,9 @@ const STEPS = [
 
 export default function Home() {
   return (
-    <main className="page">
+    <main className={`page ${styles.home}`}>
       <section className={styles.hero}>
-        <div>
+        <div className={styles.intro}>
           <p className={styles.eyebrow}>AI agent for API integration work</p>
           <h1 className={styles.title}>
             Read the API docs.

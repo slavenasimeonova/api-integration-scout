@@ -57,7 +57,6 @@ function setup(overrides: Partial<InterviewApiDeps> = {}) {
   let now = new Date("2026-10-19T10:00:00Z");
   const deps: InterviewApiDeps = {
     store,
-    codes: CODES,
     requestsEnabled: true,
     allowedOrigins: [PAGES],
     checkUrl: async (url) => {
@@ -78,8 +77,8 @@ function setup(overrides: Partial<InterviewApiDeps> = {}) {
       }),
       deps,
     );
-  const start = async (code = ACME, url = DOCS) => {
-    const res = await call("POST", "", { code, url });
+  const start = async (url = DOCS) => {
+    const res = await call("POST", "", { url });
     return { res, body: (await res.json()) as { id: string; message: string; questionsLeft: number; interview?: boolean; error?: string } };
   };
   const say = async (id: string, message?: string, finish?: boolean) => {
@@ -91,12 +90,12 @@ function setup(overrides: Partial<InterviewApiDeps> = {}) {
 }
 
 describe("starting an interview", () => {
-  it("needs a valid code, and wrong codes count toward the shared per-IP throttle", async () => {
+  it("needs no access code, and ignores one an older page still sends", async () => {
     const t = setup({ model: scripted([]).model });
-    const bad = await t.start("scout-wrong-wrong-wrong-wrong");
-    expect(bad.res.status).toBe(401);
-    expect(await t.store.list("throttle/")).toHaveLength(1);
-    expect(await t.store.list("interviews/")).toEqual([]);
+    expect((await t.start()).res.status).toBe(201);
+    expect((await t.call("POST", "", { code: "scout-wrong-wrong-wrong-wrong", url: DOCS })).status).toBe(201);
+    // No code was checked, so nothing counts toward the wrong-code throttle.
+    expect(await t.store.list("throttle/")).toEqual([]);
   });
 
   it("opens with a fixed question (no model call) and keeps the transcript for 14 days", async () => {
@@ -108,92 +107,93 @@ describe("starting an interview", () => {
     expect(body).toEqual({ id: expect.stringMatching(/^[a-z0-9]{26}$/), message: OPENING_QUESTION, questionsLeft: 5 });
     expect(calls).toEqual([]);
     const r = await t.record(body.id);
-    expect(r).toMatchObject({ codeName: "recruiter-acme", docsUrl: DOCS, status: "open", questions: 1, tokens: 0 });
+    expect(r).toMatchObject({ docsUrl: DOCS, status: "open", questions: 1, tokens: 0 });
+    expect(r.codeName).toBeUndefined();
     expect(r.expiresAt).toBe("2026-11-02T10:00:00.000Z");
   });
 
-  it("answers { interview: false } after a valid code when the assistant is off", async () => {
+  it("answers { interview: false } when the assistant is off", async () => {
     const t = setup();
     const { res, body } = await t.start();
     expect(res.status).toBe(200);
     expect(body).toEqual({ interview: false });
-    expect((await t.start("scout-wrong-wrong-wrong-wrong")).res.status).toBe(401);
   });
 
   it("rejects bad URLs and respects the request kill switch", async () => {
-    expect((await setup({ model: scripted([]).model }).start(ACME, "ftp://x")).res.status).toBe(400);
+    expect((await setup({ model: scripted([]).model }).start("ftp://x")).res.status).toBe(400);
     expect((await setup({ model: scripted([]).model, requestsEnabled: false }).start()).res.status).toBe(503);
   });
 
-  it("limits conversations per code per day, per code in total, and globally per day", async () => {
-    const limits = { ...INTERVIEW_LIMITS, perCodePerDay: 2, perCodeTotal: 3, globalPerDay: 3 };
+  it("limits conversations per hashed IP per day and globally per day", async () => {
+    const limits = { ...INTERVIEW_LIMITS, perIpPerDay: 2, globalPerDay: 3 };
     const t = setup({ model: scripted([]).model, limits });
     expect((await t.start()).res.status).toBe(201);
     expect((await t.start()).res.status).toBe(201);
-    expect((await t.start()).body.error).toBe("interview_limit_day");
-    t.setNow("2026-10-20T10:00:00Z");
+    expect((await t.start()).body.error).toBe("interview_limit_ip");
+    t.deps.clientIp = "198.51.100.7";
     expect((await t.start()).res.status).toBe(201);
-    expect((await t.start()).body.error).toBe("interview_limit_total");
-    expect((await t.start(BOB)).res.status).toBe(201);
-    expect((await t.start(BOB)).res.status).toBe(201);
-    expect((await t.start(BOB)).body.error).toBe("interview_limit_global");
+    expect((await t.start()).body.error).toBe("interview_limit_global");
+    // The next UTC day starts both counters again.
+    t.setNow("2026-10-20T10:00:00Z");
+    t.deps.clientIp = "203.0.113.9";
+    expect((await t.start()).res.status).toBe(201);
+    // Counter keys hold a salted hash, never the IP.
+    const keys = await t.store.list("counters/");
+    expect(keys.length).toBeGreaterThan(0);
+    expect(keys.join(" ")).not.toMatch(/203\.0\.113|198\.51\.100/);
   });
 
-  it("uses a global daily cap of 50 by default", () => {
-    expect(INTERVIEW_LIMITS).toMatchObject({ maxQuestions: 6, maxMessageChars: 500, maxTokens: 20_000, perCodePerDay: 5, perCodeTotal: 20, globalPerDay: 50, keepDays: 14 });
+  it("uses 3 conversations per IP and 50 in total a day by default", () => {
+    expect(INTERVIEW_LIMITS).toMatchObject({ maxQuestions: 6, maxMessageChars: 500, maxTokens: 20_000, perIpPerDay: 3, globalPerDay: 50, keepDays: 14 });
   });
 });
 
 // Live bug (2026-10-21): a valid code pasted with the text around it was over the
 // 100-character limit and got "Send JSON: { code, url }." instead of the assistant.
 describe("pasted codes and long input", () => {
-  const PASTED = `Hi! Here is your access code for API Integration Scout: ${ACME.replaceAll("-", "‑")}​. It works for 3 requests in total; let me know how it goes.`;
+  const PASTED = `Hi! Here is your access code for API Integration Scout: ${ACME.replaceAll("-", "\u2011")}\u200b. It works for 3 requests in total; let me know how it goes.`;
+  const post = (payload: unknown, store = new MemoryKv()) =>
+    handleRequestApi(
+      new Request("https://scout-requests.netlify.app/api/requests", {
+        method: "POST",
+        headers: { origin: PAGES, "content-type": "application/json" },
+        body: JSON.stringify(payload),
+      }),
+      { store, codes: CODES, enabled: true, allowedOrigins: [PAGES], checkUrl: async () => {}, clientIp: "203.0.113.9", ipSalt: "test", log: () => {} },
+    );
 
   it("finds one code in pasted text, with typographic dashes and invisible characters", async () => {
     expect(PASTED.length).toBeGreaterThan(100);
-    const t = setup({ model: scripted([]).model });
-    const { res, body } = await t.start(PASTED);
+    const store = new MemoryKv();
+    const res = await post({ code: PASTED, url: DOCS }, store);
     expect(res.status).toBe(201);
-    expect((await t.record(body.id)).codeName).toBe("recruiter-acme");
-    expect((await t.start(` ${ACME.toUpperCase().replaceAll("-", "–")} `)).res.status).toBe(201);
-    expect((await t.start(ACME.replaceAll("-", " - "))).res.status).toBe(201);
+    const { id } = (await res.json()) as { id: string };
+    expect((await store.getJSON<ScoutRequest>(requestKey(id)))?.codeName).toBe("recruiter-acme");
+    expect((await post({ code: ` ${ACME.toUpperCase().replaceAll("-", "\u2013")} `, url: DOCS })).status).toBe(201);
+    expect((await post({ code: ACME.replaceAll("-", " - "), url: DOCS })).status).toBe(201);
   });
 
   it("doesn't guess when the text holds two codes or none", async () => {
-    const t = setup({ model: scripted([]).model });
-    expect((await t.start(`${ACME} or ${BOB}`)).res.status).toBe(401);
-    expect((await t.start(`${ACME}x`)).res.status).toBe(401);
+    expect((await post({ code: `${ACME} or ${BOB}`, url: DOCS })).status).toBe(401);
+    expect((await post({ code: `${ACME}x`, url: DOCS })).status).toBe(401);
   });
 
   it("answers an overlong code as a wrong code and an overlong URL as a bad URL, not as a malformed body", async () => {
+    const code = await post({ code: "x".repeat(1001), url: DOCS });
+    expect([code.status, ((await code.json()) as { error: string }).error]).toEqual([401, "invalid_code"]);
+    const long = await post({ code: ACME, url: `${DOCS}?q=${"a".repeat(2000)}` });
+    expect([long.status, ((await long.json()) as { error: string }).error]).toEqual([400, "invalid_url"]);
     const t = setup({ model: scripted([]).model });
-    const code = await t.start("x".repeat(1001));
-    expect([code.res.status, code.body.error]).toEqual([401, "invalid_code"]);
-    const url = await t.start(ACME, `${DOCS}?q=${"a".repeat(2000)}`);
+    const url = await t.start(`${DOCS}?q=${"a".repeat(2000)}`);
     expect([url.res.status, url.body.error]).toEqual([400, "invalid_url"]);
   });
 
   it("logs a malformed body's shape, never its content", async () => {
     const t = setup({ model: scripted([]).model });
-    const res = await t.call("POST", "", { code: 42, url: "https://secret.example.com/private" });
+    const res = await t.call("POST", "", { url: 42, note: "https://secret.example.com/private" });
     expect(res.status).toBe(400);
-    expect(t.logs).toEqual(["[interview] invalid_body: content-type application/json, body code:number, url:string(34)"]);
+    expect(t.logs).toEqual(["[interview] invalid_body: content-type application/json, body url:number, note:string(34)"]);
     expect(t.logs.join(" ")).not.toContain("secret");
-  });
-
-  it("accepts the pasted code in the request API too", async () => {
-    const post = (payload: unknown) =>
-      handleRequestApi(
-        new Request("https://scout-requests.netlify.app/api/requests", {
-          method: "POST",
-          headers: { origin: PAGES, "content-type": "application/json" },
-          body: JSON.stringify(payload),
-        }),
-        { store: new MemoryKv(), codes: CODES, enabled: true, allowedOrigins: [PAGES], checkUrl: async () => {}, clientIp: "203.0.113.9", ipSalt: "test", log: () => {} },
-      );
-    expect((await post({ code: PASTED, url: DOCS })).status).toBe(201);
-    const long = await post({ code: ACME, url: `${DOCS}?q=${"a".repeat(2000)}` });
-    expect([long.status, ((await long.json()) as { error: string }).error]).toEqual([400, "invalid_url"]);
   });
 });
 
@@ -352,12 +352,22 @@ describe("requests linked to an interview", () => {
     expect(res.status).toBe(201);
     const { id: requestId } = (await res.json()) as { id: string };
     expect((await t.store.getJSON<ScoutRequest>(requestKey(requestId)))?.interviewId).toBe(id);
-    expect(await t.record(id)).toMatchObject({ status: "submitted", requestId });
+    // The chat needed no code; the code that sent the request is recorded on it.
+    expect(await t.record(id)).toMatchObject({ status: "submitted", requestId, codeName: "recruiter-acme" });
   });
 
-  it("refuses an interview from another code or an unknown one", async () => {
+  it("keeps the conversation usable after a wrong code", async () => {
+    const { t, id, post } = await withGoal();
+    expect((await post({ code: "scout-wrong-wrong-wrong-wrong", url: DOCS, goal: GOAL, interviewId: id })).status).toBe(401);
+    expect((await t.record(id)).status).toBe("goal");
+    expect((await post({ code: ACME, url: DOCS, goal: GOAL, interviewId: id })).status).toBe(201);
+  });
+
+  it("refuses an interview that is already used, or unknown", async () => {
     const { id, post } = await withGoal();
-    expect((await post({ code: BOB, url: DOCS, goal: GOAL, interviewId: id })).status).toBe(400);
+    expect((await post({ code: ACME, url: DOCS, goal: GOAL, interviewId: id })).status).toBe(201);
+    const reused = await post({ code: BOB, url: DOCS, goal: GOAL, interviewId: id });
+    expect([reused.status, ((await reused.json()) as { error: string }).error]).toEqual([400, "invalid_interview"]);
     expect((await post({ code: ACME, url: DOCS, goal: GOAL, interviewId: "b".repeat(26) })).status).toBe(400);
     expect((await post({ code: ACME, url: DOCS, goal: GOAL, interviewId: "not-an-id" })).status).toBe(400);
   });
@@ -372,6 +382,18 @@ describe("pruneInterviews", () => {
     expect(await pruneInterviews(t.store, new Date("2026-11-02T10:00:00Z"))).toBe(1);
     expect(await t.store.list("interviews/")).toEqual([interviewKey(recent)]);
     expect(old).not.toBe(recent);
+  });
+
+  it("deletes per-IP counters of past days and keeps today's", async () => {
+    const t = setup({ model: scripted([]).model });
+    await t.start();
+    t.setNow("2026-10-20T10:00:00Z");
+    await t.start();
+    await pruneInterviews(t.store, new Date("2026-10-20T12:00:00Z"));
+    const left = await t.store.list("counters/_ip/");
+    expect(left).toHaveLength(1);
+    expect(left[0]).toMatch(/\/2026-10-20$/);
+    expect(await t.store.list("counters/_global/")).toHaveLength(2);
   });
 });
 

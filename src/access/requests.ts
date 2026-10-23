@@ -107,11 +107,11 @@ export async function handleRequestApi(req: Request, deps: RequestApiDeps): Prom
   if (!("code" in checked)) return fail(checked.status, checked.error, checked.message);
   const code = checked.code;
 
-  // A linked interview must belong to the same code; it is marked as used below.
+  // The chat needed no code, so a linked interview only has to exist and be unused; it is marked as used below.
   let interview: InterviewRecord | undefined;
   if (typeof body.interviewId === "string") {
     interview = await deps.store.getJSON<InterviewRecord>(interviewKey(body.interviewId));
-    if (!interview || interview.codeName !== code.name) return fail(400, "invalid_interview", "This conversation has expired. Please write the goal yourself.");
+    if (!interview || interview.requestId) return fail(400, "invalid_interview", "This conversation has expired. Please write the goal yourself.");
   }
 
   const url = body.url.trim();
@@ -139,7 +139,7 @@ export async function handleRequestApi(req: Request, deps: RequestApiDeps): Prom
     status: "pending",
   };
   await deps.store.setJSON(requestKey(record.id), record);
-  if (interview) await deps.store.setJSON(interviewKey(interview.id), { ...interview, status: "submitted", requestId: record.id });
+  if (interview) await deps.store.setJSON(interviewKey(interview.id), { ...interview, status: "submitted", requestId: record.id, codeName: code.name });
   await deps.store.setJSON(dayKey, { count: today + 1 });
   await deps.store.setJSON(totalKey, { count: total + 1 });
 

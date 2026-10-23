@@ -3,9 +3,10 @@
 People you give an access code to can request a run from the public demo. You review each request, run it on your machine, and publish the result to the site. It costs $0 in hosting: GitHub Pages and the Netlify Free plan. You only pay Anthropic for the runs you choose to do.
 
 ```
-Pages (home): "Have an access code?" -> code + docs URL -> Continue
-  -> Netlify Function /api/interview: checks the code -> goal assistant chat (up to 6 questions)
-     -> the visitor edits the proposed goal (or writes one if the assistant is off)
+Pages (home): goal assistant at the top, open to everyone -> docs URL -> Start
+  -> Netlify Function /api/interview: no code; 3 conversations per IP and 50 in total a day
+     -> chat (up to 6 questions) -> the visitor edits the proposed goal (or writes one if the assistant is off)
+  -> access code + "Request a run"
   -> Netlify Function /api/requests: kill switch, wrong-code throttle (10 per IP per hour),
      code hash check, per-code limits (per day, total), URL check
   -> stored in Netlify Blobs as "pending" -> Telegram message to you
@@ -22,7 +23,7 @@ Pages redeploys (~2 min): the visitor's link replays the result.
 | Codes, limits, request API, Telegram | `src/access/` (plain Node; reusable by a worker later) |
 | Goal assistant | `src/access/interview.ts` (limits, transcripts), `interview-prompt.ts`, `interview-model.ts` (the only file using the Anthropic SDK) |
 | Netlify Functions | `netlify/functions/requests.ts`, `interview.ts`, `prune-interviews.ts` (daily); config in `netlify.toml` |
-| Site panel and results page | `web/components/AccessCodeRequest.tsx`, `GoalInterview.tsx`, `web/app/results/` |
+| Site assistant and results page | `web/components/GoalAssistant.tsx`, `GoalInterview.tsx`, `web/lib/api-errors.ts`, `web/app/results/` |
 | Your commands | `code:new`, `request:list`, `request:fulfil` (in `scripts/`) |
 
 ## One-time setup
@@ -93,16 +94,16 @@ Then apply the variables: **Deploys > Trigger deploy > Deploy project**. Netlify
 
 Netlify Functions run on AWS Lambda, where all environment variables together are limited to 4 KB. That's room for about 30 codes.
 
-### 5. Turn on the panel on the public site
+### 5. Turn on request mode on the public site
 
-The site shows the "Have an access code?" panel only when it knows the API's address. Set the address as a GitHub repository variable (a public URL, not a secret), then rebuild Pages:
+The site shows the goal assistant (and asks for codes) only when it knows the API's address. Set the address as a GitHub repository variable (a public URL, not a secret), then rebuild Pages:
 
 ```powershell
 gh variable set REQUEST_API_URL --body "https://api-scout-requests.netlify.app"
 gh workflow run pages.yml --ref main
 ```
 
-You can also set it in the web UI: **GitHub > Settings > Secrets and variables > Actions > Variables > New repository variable**. To remove the panel, delete the variable and run the workflow again.
+You can also set it in the web UI: **GitHub > Settings > Secrets and variables > Actions > Variables > New repository variable**. To remove the assistant and request mode, delete the variable and run the workflow again; the site then shows the disabled run form.
 
 ### 6. Let your machine read requests
 
@@ -118,7 +119,7 @@ NETLIFY_AUTH_TOKEN=...
 
 ### 7. Test it
 
-1. Open the demo, click **Have an access code?**, and submit your code with `https://ipinfo.io/developers`.
+1. Open the demo, enter `https://ipinfo.io/developers` in the goal assistant, write or accept a goal, then enter your code and click **Request a run**.
 2. Check that a Telegram message arrives with the code name, the URL (and the goal, if you gave one) and a ready-to-run command.
 3. Run `npm.cmd run request:list`. It should show the request.
 
@@ -130,7 +131,7 @@ npm.cmd run request:fulfil -- <id>       # review, run, publish
 npm.cmd run request:fulfil -- <id> --decline --note "Docs need a login"   # decline
 ```
 
-**Goals.** A visitor can add a goal (up to 300 characters). The panel tells them that the goal is published with the result and asks them not to include confidential information. The goal is shown in Telegram, by `request:list` and in the `request:fulfil` review, and the run is scoped to it ([goal mode](goal-mode.md)). A goal longer than 300 characters is rejected without using up one of the code's requests.
+**Goals.** A visitor can add a goal (up to 300 characters). The site tells them that the goal is published with the result and asks them not to include confidential information. The goal is shown in Telegram, by `request:list` and in the `request:fulfil` review, and the run is scoped to it ([goal mode](goal-mode.md)). A goal longer than 300 characters is rejected without using up one of the code's requests.
 
 `request:fulfil` works through these steps:
 
@@ -152,7 +153,7 @@ npm.cmd run request:fulfil -- <id> --decline --note "Docs need a login"   # decl
 
 ## Goal assistant
 
-After a valid code, a short chat writes the goal: the assistant (`claude-haiku-5-5`) asks up to 6 questions (what they're building, which events, webhooks or not, which systems), then proposes a goal of at most 300 characters. The visitor edits it and sends the request. The first question is fixed text, so it costs nothing.
+The goal assistant is the first thing on the home page and is open to everyone: no code is needed to chat. The visitor enters a docs URL, and the assistant (`claude-haiku-5-5`) asks up to 6 questions (what they're building, which events, webhooks or not, which systems), then proposes a goal of at most 300 characters. The access code is asked only at the end, with **Request a run**, because the run is the part that costs money. The first question is fixed text, so it costs nothing. A wrong code doesn't use up the conversation; the visitor can fix the code and send again.
 
 **Limits** (in code, `INTERVIEW_LIMITS` in `src/access/interview.ts`; the prompt doesn't enforce anything):
 
@@ -162,15 +163,15 @@ After a valid code, a short chat writes the goal: the assistant (`claude-haiku-5
 | Visitor message | 500 characters |
 | Tokens per conversation | 20,000 (input + output); past this, the next reply must be the goal |
 | Idle time | 30 minutes, then the visitor writes the goal by hand |
-| Conversations per code | 5 a day (UTC), 20 in total; separate from the code's request limits |
-| Conversations, all codes | 50 a day |
+| Conversations per visitor | 3 a day (UTC) per IP; the IP is stored only as a salted hash (`IP_SALT`), and past days' counters are deleted daily |
+| Conversations, everyone | 50 a day |
 | Each reply | 400 output tokens, low effort, no thinking, no tools |
 
-Wrong codes count toward the same per-IP throttle as requests (10 per hour).
+Without a code, the global cap is what bounds the cost: someone switching IPs still stops at 50 conversations a day, and the scout-demo workspace's spend limit is the last line of defense.
 
 **Untrusted visitor text.** Visitor messages reach the model only inside `<<<VISITOR ... VISITOR>>>`, with any delimiters in them removed first. The system prompt says they are data and that the assistant only helps write the goal. The reply must match a JSON schema (`kind`, `text`, `goal`), which code checks again. The site shows replies as plain text. The model never fetches the URL. The goal still goes through the scout run's own `GOAL_INSTRUCTIONS`, and you see it in `request:fulfil` before any paid run.
 
-**Transcripts** are stored in Blobs (`interviews/<id>`) for 14 days, which the panel tells visitors. `request:fulfil` prints the conversation under the request. The `prune-interviews` function deletes expired ones daily, and `request:list` does it too.
+**Transcripts** are stored in Blobs (`interviews/<id>`) for 14 days, which the chat tells visitors. A transcript gets the code name only when a request uses it. `request:fulfil` prints the conversation under the request. The `prune-interviews` function deletes expired ones daily, and `request:list` does it too.
 
 **Fallbacks.** If the assistant is off, has no key, is over a limit, or doesn't answer, the visitor gets the plain goal box and can still send the request.
 
@@ -189,9 +190,9 @@ Wrong codes count toward the same per-IP throttle as requests (10 per hour).
    Then **Deploys > Trigger deploy > Deploy project**. The commit that adds the functions triggers a deploy by itself.
 3. **Check the functions:** **Logs > Functions** should list `interview` and `prune-interviews` (the latter marked as scheduled).
 
-**Turn it off:** set `INTERVIEW_ENABLED` to `off` and redeploy. Visitors with a code then see the plain goal box. To stop all spending at once, revoke the `scout-interviewer` key in the Console; visitors get the same fallback.
+**Turn it off:** set `INTERVIEW_ENABLED` to `off` and redeploy. Visitors then go straight from the URL to the plain goal box and the code. To stop all spending at once, revoke the `scout-interviewer` key in the Console; visitors get the same fallback.
 
-**Cost:** about $0.003 per conversation ($0.10 per million input tokens, $0.50 per million output tokens; about 15,000 input and 2,000 output tokens over 7 calls). At the 20,000-token cap a conversation stays under $0.01, so 50 a day is at most about $0.50 a day; the workspace spend limit caps the month.
+**Cost:** about $0.003 per conversation ($0.10 per million input tokens, $0.50 per million output tokens; about 15,000 input and 2,000 output tokens over 7 calls). At the 20,000-token cap a conversation stays under $0.01, so 50 a day is at most about $0.50 a day (typically about $0.15); the workspace spend limit caps the month.
 
 ## Revoke, pause, limits
 
@@ -212,10 +213,10 @@ Wrong codes count toward the same per-IP throttle as requests (10 per hour).
 
 | Symptom | Cause and fix |
 | --- | --- |
-| No "Have an access code?" panel | `REQUEST_API_URL` isn't set, or Pages wasn't rebuilt since (step 5). |
+| No goal assistant on the home page | `REQUEST_API_URL` isn't set, or Pages wasn't rebuilt since (step 5). |
 | "Couldn't reach the request service" | The Netlify project is down or paused, or `ALLOWED_ORIGIN` doesn't match the site's origin (scheme + host, no path). |
 | "This access code isn't valid" for a new code | Netlify wasn't redeployed after `ACCESS_CODES` changed, or the entry was mistyped (see **Logs > Functions**). |
-| "Something went wrong while checking your code" | The API rejected the request's shape (`invalid_body`). The panel never shows the API's own message; the cause, with each field's type and length but not its content, is in **Logs > Functions > interview** (or **requests**). |
+| "Something went wrong while starting the goal assistant" (or "...sending your request") | The API rejected the request's shape (`invalid_body`) or failed. The site never shows the API's own message; the cause, with each field's type and length but not its content, is in **Logs > Functions > interview** (or **requests**). |
 | No Telegram message | The request is still stored; check `npm.cmd run request:list`. The error is in **Logs > Functions > requests**. Check `TELEGRAM_CHAT_ID`, and that you pressed **Start** in the bot. |
 | `request:list` says to set `NETLIFY_SITE_ID` | Step 6. |
 | The chat never starts; visitors get the plain goal box | `INTERVIEW_ENABLED` is `off` or `INTERVIEW_API_KEY` is missing, or Netlify wasn't redeployed after setting them. |

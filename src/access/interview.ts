@@ -1,16 +1,17 @@
 import { normalizeGoal, MAX_GOAL_CHARS } from "../core/goal.js";
-import { checkAccessCode, MAX_CODE_INPUT, MAX_URL_CHARS, type AccessCode } from "./codes.js";
+import { hashIp, MAX_URL_CHARS } from "./codes.js";
 import { describeBody, jsonResponder } from "./http.js";
 import { FINISH_NOTE, INTERVIEW_SYSTEM, OPENING_QUESTION, REDIRECT_REPLY, wrapDocsUrl, wrapVisitor } from "./interview-prompt.js";
 import { newId, RECORD_ID, type KvStore } from "./store.js";
 
 /**
- * The goal interviewer: after a valid access code, a short chat in which a
- * cheap model asks up to 6 questions and writes the goal; the visitor edits it
- * and sends it with the request (POST /api/requests { ..., interviewId }).
+ * The goal interviewer: a short chat, open to everyone, in which a cheap
+ * model asks up to 6 questions and writes the goal. The visitor edits it and
+ * sends it with an access code (POST /api/requests { code, ..., interviewId }),
+ * so only the run itself needs a code.
  * Web-standard Request/Response, like requests.ts.
  *
- *   POST /api/interview        { code, url }            -> 201 { id, message, questionsLeft } | 200 { interview: false }
+ *   POST /api/interview        { url }                  -> 201 { id, message, questionsLeft } | 200 { interview: false }
  *   GET  /api/interview/<id>                            -> { status, turns, questionsLeft, goal? }
  *   POST /api/interview/<id>   { message?, finish? }    -> { status, message, questionsLeft, goal? }
  *
@@ -25,8 +26,8 @@ export const INTERVIEW_LIMITS = {
   /** Input + output tokens per conversation; past this, the next reply must be the goal. */
   maxTokens: 20_000,
   idleMinutes: 30,
-  perCodePerDay: 5,
-  perCodeTotal: 20,
+  /** Conversations per hashed client IP per UTC day (there is no code yet). */
+  perIpPerDay: 3,
   globalPerDay: 50,
   keepDays: 14,
 };
@@ -35,7 +36,8 @@ export type InterviewTurn = { role: "assistant" | "visitor"; text: string; at: s
 
 export type InterviewRecord = {
   id: string;
-  codeName: string;
+  /** Set when a request uses the conversation; the chat itself needs no code. */
+  codeName?: string;
   docsUrl: string;
   createdAt: string;
   updatedAt: string;
@@ -60,13 +62,13 @@ export type InterviewModel = (input: {
 
 export type InterviewApiDeps = {
   store: KvStore;
-  codes: AccessCode[];
-  /** Missing (kill switch off, or no API key): a valid code gets { interview: false } and the plain goal field. */
+  /** Missing (kill switch off, or no API key): { interview: false }, and the visitor writes the goal. */
   model?: InterviewModel;
   /** The request kill switch; when off, no interview starts either. */
   requestsEnabled: boolean;
   allowedOrigins: string[];
   checkUrl: (url: string) => Promise<void>;
+  /** Hashed with ipSalt for the per-IP limit; never stored raw. */
   clientIp?: string;
   ipSalt: string;
   limits?: typeof INTERVIEW_LIMITS;
@@ -76,10 +78,10 @@ export type InterviewApiDeps = {
 
 export const interviewKey = (id: string) => `interviews/${id}`;
 
-const counterKeys = (codeName: string, day: string) => ({
-  day: `counters/${codeName}/interviews/day/${day}`,
-  total: `counters/${codeName}/interviews/total`,
-  // Code names start with a letter or digit, so "_global" can't collide.
+// Code names start with a letter or digit, so "_ip" and "_global" can't collide with a code's counters.
+const IP_COUNTERS = "counters/_ip/";
+const counterKeys = (ipHash: string, day: string) => ({
+  ip: `${IP_COUNTERS}${ipHash}/interviews/day/${day}`,
   global: `counters/_global/interviews/day/${day}`,
 });
 
@@ -106,16 +108,14 @@ export async function handleInterviewApi(req: Request, deps: InterviewApiDeps): 
   // Start a conversation.
   if (path === "/api/interview" && req.method === "POST") {
     if (!deps.requestsEnabled) return fail(503, "paused", "Requests are paused right now. Please try again later.");
-    const input = await body<{ code?: unknown; url?: unknown }>();
-    if (!input || typeof input.code !== "string" || typeof input.url !== "string") {
+    // Open to everyone: the access code is asked only when the request is sent. An old client still sends a code; it is ignored.
+    const input = await body<{ url?: unknown }>();
+    if (!input || typeof input.url !== "string") {
       log(`[interview] invalid_body: ${describeBody(req, input)}`);
-      return fail(400, "invalid_body", "Send JSON: { code, url }.");
+      return fail(400, "invalid_body", "Send JSON: { url }.");
     }
-    if (input.code.length > MAX_CODE_INPUT) return fail(401, "invalid_code", "This access code isn't valid.");
     if (input.url.length > MAX_URL_CHARS) return fail(400, "invalid_url", "This URL is too long.");
     const at = now();
-    const checked = await checkAccessCode(deps, input.code, at);
-    if (!("code" in checked)) return fail(checked.status, checked.error, checked.message);
     const url = input.url.trim();
     try {
       await deps.checkUrl(url);
@@ -124,18 +124,16 @@ export async function handleInterviewApi(req: Request, deps: InterviewApiDeps): 
     }
     if (!deps.model) return json(200, { interview: false });
 
-    const keys = counterKeys(checked.code.name, at.toISOString().slice(0, 10));
+    const keys = counterKeys(hashIp(deps.ipSalt, deps.clientIp), at.toISOString().slice(0, 10));
     const count = async (key: string) => (await deps.store.getJSON<{ count: number }>(key))?.count ?? 0;
-    const [today, total, global] = await Promise.all([count(keys.day), count(keys.total), count(keys.global)]);
+    const [ip, global] = await Promise.all([count(keys.ip), count(keys.global)]);
     // Over a limit, the visitor can still write the goal by hand and send the request.
     if (global >= limits.globalPerDay) return fail(429, "interview_limit_global", "The goal assistant is busy today. Please write the goal yourself.");
-    if (total >= limits.perCodeTotal) return fail(429, "interview_limit_total", "This code has used all its conversations. Please write the goal yourself.");
-    if (today >= limits.perCodePerDay) return fail(429, "interview_limit_day", "This code has used today's conversations. Please write the goal yourself.");
+    if (ip >= limits.perIpPerDay) return fail(429, "interview_limit_ip", "You've used today's goal assistant conversations. Please write the goal yourself.");
 
     const iso = at.toISOString();
     const record: InterviewRecord = {
       id: newId(),
-      codeName: checked.code.name,
       docsUrl: url,
       createdAt: iso,
       updatedAt: iso,
@@ -146,8 +144,7 @@ export async function handleInterviewApi(req: Request, deps: InterviewApiDeps): 
       tokens: 0,
     };
     await deps.store.setJSON(interviewKey(record.id), record);
-    await deps.store.setJSON(keys.day, { count: today + 1 });
-    await deps.store.setJSON(keys.total, { count: total + 1 });
+    await deps.store.setJSON(keys.ip, { count: ip + 1 });
     await deps.store.setJSON(keys.global, { count: global + 1 });
     return json(201, { id: record.id, message: OPENING_QUESTION, questionsLeft: questionsLeft(record, limits) });
   }
@@ -159,7 +156,7 @@ export async function handleInterviewApi(req: Request, deps: InterviewApiDeps): 
   if (!record) return fail(404, "not_found", "This conversation has expired. Please write the goal yourself.");
 
   if (req.method === "GET") {
-    // The code name stays on the server.
+    // The code name (set once a request uses it) stays on the server.
     return json(200, {
       status: record.status,
       turns: record.turns.map(({ role, text }) => ({ role, text })),
@@ -256,8 +253,12 @@ export function cleanGoal(goal: string): string {
   return normalizeGoal(text) ?? "";
 }
 
-/** Deletes transcripts past expiresAt. Returns how many were deleted. */
+/** Deletes transcripts past expiresAt, and per-IP counters of past days. Returns how many transcripts were deleted. */
 export async function pruneInterviews(store: KvStore, now = new Date()): Promise<number> {
+  const today = now.toISOString().slice(0, 10);
+  for (const key of await store.list(IP_COUNTERS)) {
+    if ((key.split("/").at(-1) ?? "") < today) await store.delete(key);
+  }
   let deleted = 0;
   for (const key of await store.list("interviews/")) {
     const record = await store.getJSON<InterviewRecord>(key);
