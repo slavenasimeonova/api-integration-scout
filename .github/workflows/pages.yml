@@ -41,6 +41,8 @@ jobs:
       - run: npm run build:static
         env:
           PAGES_BASE_PATH: ${{ steps.pages.outputs.base_path }}
+          # Absolute URLs for the link preview (og:image, og:url)
+          SITE_URL: ${{ steps.pages.outputs.base_url }}
           # Request mode API (Netlify). Repo variable; unset = no access-code panel. docs/requests.md
           REQUEST_API_URL: ${{ vars.REQUEST_API_URL }}
       - uses: actions/upload-pages-artifact@v4

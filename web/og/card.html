@@ -1,0 +1,47 @@
+<!doctype html>
+<!--
+  Source of public/og.png, the link preview (Open Graph / Twitter card) used on LinkedIn and elsewhere.
+  Colors match app/globals.css (light theme). After editing, regenerate the image (PowerShell, in web/):
+    & "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe" --headless=new --hide-scrollbars --force-device-scale-factor=1 --window-size=1200,630 --virtual-time-budget=5000 --screenshot="$PWD\public\og.png" "$PWD\og\card.html"
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500&family=IBM+Plex+Sans:wght@400;600;700&display=block" rel="stylesheet">
+<style>
+  html, body { margin: 0; width: 1200px; height: 630px; overflow: hidden; }
+  body {
+    box-sizing: border-box;
+    padding: 64px 72px 56px;
+    display: flex;
+    flex-direction: column;
+    background: #f7f7f5;
+    color: #1c1c1a;
+    font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+    border-top: 12px solid #2f5bd3;
+  }
+  .eyebrow { font-family: "IBM Plex Mono", Consolas, monospace; font-size: 24px; letter-spacing: 0.04em; text-transform: uppercase; color: #2f5bd3; }
+  h1 { margin: 22px 0 0; font-size: 76px; line-height: 1.08; letter-spacing: -0.02em; font-weight: 700; }
+  .labels { display: flex; gap: 18px; margin-top: auto; }
+  .label { display: flex; flex-direction: column; gap: 10px; flex: 1; padding: 22px 24px; background: #fff; border: 1px solid #e2e1dc; border-radius: 14px; }
+  .badge { align-self: flex-start; font-size: 26px; font-weight: 600; padding: 4px 18px; border-radius: 999px; }
+  .label span:last-child { font-size: 21px; color: #6b6a64; }
+  .documented { color: #1f7a4d; background: #e3f3ea; }
+  .inferred { color: #8a5a00; background: #fbefd5; }
+  .missing { color: #5f5e58; background: #ecebe6; }
+  footer { display: flex; justify-content: space-between; margin-top: 30px; font-size: 22px; color: #6b6a64; }
+  footer b { color: #1c1c1a; font-weight: 600; }
+</style>
+</head>
+<body>
+  <div class="eyebrow">AI agent for API integration work</div>
+  <h1>Read the API docs.<br>Keep fact and guess apart.</h1>
+  <div class="labels">
+    <div class="label"><span class="badge documented">Documented</span><span>quote checked on the page</span></div>
+    <div class="label"><span class="badge inferred">Inferred</span><span>the agent's reasoning</span></div>
+    <div class="label"><span class="badge missing">Not found in docs</span><span>reported, never guessed</span></div>
+  </div>
+  <footer><b>API Integration Scout</b><span>slavenasimeonova.github.io/api-integration-scout</span></footer>
+</body>
+</html>

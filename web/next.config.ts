@@ -8,13 +8,15 @@ const staticDemo = process.env.STATIC_DEMO === "1";
 const basePath = staticDemo ? (process.env.PAGES_BASE_PATH ?? "").replace(/\/+$/, "") : "";
 // Request mode API (Netlify Function, see docs/requests.md). Unset = no access-code panel.
 const requestApi = staticDemo ? (process.env.REQUEST_API_URL ?? "").replace(/\/+$/, "") : "";
+// Public URL for link-preview tags (the Pages workflow passes it; web/lib/site.ts has the default).
+const siteUrl = (process.env.SITE_URL ?? "").replace(/\/+$/, "");
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   // The app only imports types from ../src; keep Next's root at web/.
   turbopack: { root: import.meta.dirname },
   outputFileTracingRoot: import.meta.dirname,
-  env: { NEXT_PUBLIC_STATIC_DEMO: staticDemo ? "1" : "", NEXT_PUBLIC_BASE_PATH: basePath, NEXT_PUBLIC_REQUEST_API: requestApi },
+  env: { NEXT_PUBLIC_STATIC_DEMO: staticDemo ? "1" : "", NEXT_PUBLIC_BASE_PATH: basePath, NEXT_PUBLIC_REQUEST_API: requestApi, NEXT_PUBLIC_SITE_URL: siteUrl },
   ...(staticDemo
     ? { output: "export", basePath, trailingSlash: true, images: { unoptimized: true } }
     : {
