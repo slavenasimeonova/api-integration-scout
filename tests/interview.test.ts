@@ -464,6 +464,26 @@ describe("the Claude adapter", () => {
     expect(body.tools).toBeUndefined();
   });
 
+  // Live bug (2026-10-27): Netlify functions get ANTHROPIC_BASE_URL (Netlify's AI Gateway), which the
+  // SDK uses by default, so the scout-demo key went to the gateway and came back 401 with no body.
+  it("always calls api.anthropic.com with only the given key, whatever the environment says", async () => {
+    const saved = { base: process.env.ANTHROPIC_BASE_URL, token: process.env.ANTHROPIC_AUTH_TOKEN };
+    process.env.ANTHROPIC_BASE_URL = "https://gateway.example.netlify.app/anthropic";
+    process.env.ANTHROPIC_AUTH_TOKEN = "gateway-token";
+    try {
+      const api = fakeApi({ stop_reason: "end_turn", content: [{ type: "text", text: JSON.stringify(question("Q")) }], usage: { input_tokens: 1, output_tokens: 1 } });
+      await createClaudeInterviewModel({ apiKey: KEY, fetch: api.fetch })(input);
+      expect(api.sent[0]!.url).toBe("https://api.anthropic.com/v1/messages");
+      expect(api.sent[0]!.headers.get("x-api-key")).toBe(KEY);
+      expect(api.sent[0]!.headers.get("authorization")).toBeNull();
+    } finally {
+      for (const [name, value] of [["ANTHROPIC_BASE_URL", saved.base], ["ANTHROPIC_AUTH_TOKEN", saved.token]] as const) {
+        if (value === undefined) delete process.env[name];
+        else process.env[name] = value;
+      }
+    }
+  });
+
   it("reports refusals and unusable output", async () => {
     const refusal = fakeApi({ stop_reason: "refusal", content: [], usage: { input_tokens: 10, output_tokens: 0 } });
     expect(await createClaudeInterviewModel({ apiKey: KEY, fetch: refusal.fetch })(input)).toMatchObject({ reply: null, refused: true });

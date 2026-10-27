@@ -38,7 +38,16 @@ export function parseReply(raw: string): InterviewReply | null {
 
 export function createClaudeInterviewModel(opts: { apiKey: string; model?: string; fetch?: typeof fetch }): InterviewModel {
   // Netlify's synchronous functions time out after about 10 s; one retry still fits.
-  const client = new Anthropic({ apiKey: opts.apiKey, timeout: 4_500, maxRetries: 1, ...(opts.fetch ? { fetch: opts.fetch } : {}) });
+  // baseURL and authToken are pinned: Netlify gives functions ANTHROPIC_BASE_URL (its AI Gateway),
+  // which the SDK would otherwise use, sending this key there (401, 2026-10-27).
+  const client = new Anthropic({
+    apiKey: opts.apiKey,
+    authToken: null,
+    baseURL: "https://api.anthropic.com",
+    timeout: 4_500,
+    maxRetries: 1,
+    ...(opts.fetch ? { fetch: opts.fetch } : {}),
+  });
   return async ({ system, messages }) => {
     const response = await client.messages.create({
       model: opts.model ?? INTERVIEW_MODEL_ID,
