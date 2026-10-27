@@ -20,6 +20,28 @@
   box-shadow: 0 12px 32px -16px rgb(0 0 0 / 0.35);
 }
 
+.toastActions {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.close {
+  font: inherit;
+  font-size: 1.1rem;
+  line-height: 1;
+  padding: 0.45rem 0.55rem;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--documented);
+  cursor: pointer;
+}
+
+.close:hover {
+  background: rgb(0 0 0 / 0.06);
+}
+
 .toast .open {
   background: var(--documented);
   border-color: var(--documented);

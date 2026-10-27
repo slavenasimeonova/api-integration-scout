@@ -33,6 +33,7 @@ export function RequestResult() {
   const id = useSearchParams().get("id") ?? "";
   const [view, setView] = useState<View>({ kind: "loading" });
   const [ready, setReady] = useState(false);
+  const [toastClosed, setToastClosed] = useState(false);
   const [notify, setNotify] = useState<"off" | "on" | "denied">("off");
   const notifyRef = useRef(notify);
   notifyRef.current = notify;
@@ -91,12 +92,18 @@ export function RequestResult() {
     window.scrollTo({ top: 0 });
   }
 
-  const toast = ready && view.kind !== "result" && (
+  // Closing the toast leaves the "Open analysis" button in the card.
+  const toast = ready && !toastClosed && view.kind !== "result" && (
     <div className={styles.toast} role="status">
       <span>✅ Your analysis is ready</span>
-      <button type="button" className={`btn ${styles.open}`} onClick={openResult}>
-        Open
-      </button>
+      <span className={styles.toastActions}>
+        <button type="button" className={`btn ${styles.open}`} onClick={openResult}>
+          Open
+        </button>
+        <button type="button" className={styles.close} onClick={() => setToastClosed(true)} aria-label="Close">
+          ✕
+        </button>
+      </span>
     </div>
   );
 
