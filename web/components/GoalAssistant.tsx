@@ -35,6 +35,18 @@ export function GoalAssistant() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string>();
   const [sentId, setSentId] = useState<string>();
+  const [copied, setCopied] = useState(false);
+
+  async function copyLink(link: string) {
+    try {
+      await navigator.clipboard.writeText(link);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Clipboard blocked (e.g. an insecure context): the link is still on screen to copy by hand.
+      window.prompt("Copy this link:", link);
+    }
+  }
 
   async function start(e: React.FormEvent) {
     e.preventDefault();
@@ -116,13 +128,17 @@ export function GoalAssistant() {
       <section className={`card ${styles.form} ${styles.assistant}`} aria-live="polite">
         <strong>Request received</strong>
         <p className="small">
-          I review each request and run it myself, usually within a day. Bookmark this link; the result appears there:
+          I review each request and run it myself, usually within a day, and I&apos;ll message you when it&apos;s ready. The
+          result will appear at this link:
         </p>
-        <p className="small">
+        <div className={`small ${styles.linkRow}`}>
           <Link href={href} style={{ overflowWrap: "anywhere" }}>
             {full}
           </Link>
-        </p>
+          <button type="button" className="btn" onClick={() => copyLink(full)}>
+            {copied ? "Copied" : "Copy link"}
+          </button>
+        </div>
       </section>
     );
   }

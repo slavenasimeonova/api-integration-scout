@@ -99,6 +99,15 @@
   order: -1;
 }
 
+/* "Request received": the result link with a Copy link button beside it (wraps on phones). */
+.linkRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  margin-top: 0.6rem;
+}
+
 /* Goal assistant chat (request mode). */
 .chat {
   list-style: none;
